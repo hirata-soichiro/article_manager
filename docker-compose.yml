@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     build:
-      context: ./docker/mysql
+      context: ./db
       dockerfile: Dockerfile
     container_name: db
     environment:
@@ -15,8 +15,8 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./docker/mysql/data:/var/lib/mysql
-      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./db/data:/var/lib/mysql
+      - ./db/my.cnf:/etc/mysql/conf.d/my.cnf
     networks:
       - article_network
     healthcheck:
