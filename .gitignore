@@ -3,3 +3,6 @@ require/
 
 # Todoリスト
 todo.txt
+
+# claude
+.claude/
