@@ -23,7 +23,7 @@ export default function Sidebar() {
 
                     <li>
                         <Link
-                            href="/"
+                            href="/articles"
                             className="block p-2 rounded hover:bg-gray-200 transition"
                         >
                             {/* block: ブロック要素（幅いっぱい） */}
@@ -36,7 +36,7 @@ export default function Sidebar() {
 
                     <li>
                         <Link
-                            href="/articles"
+                            href="/articles/new"
                             className="block p-2 rounded hover:bg-gray-200 transition"
                         >
                             ✏️ 記事登録
