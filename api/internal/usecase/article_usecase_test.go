@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"article_manager/internal/domain/entity"
+	"article-manager/internal/domain/entity"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,7 +70,7 @@ func TestCreateArticle(t *testing.T) {
 		assert.Equal(t, int64(1), result.ID)
 		assert.Equal(t, "テスト記事", result.Title)
 		assert.Equal(t, "https://example.com", result.URL)
-		assert.Equal(t, "これはテスト記事です", result.Description)
+		assert.Equal(t, "これはテスト記事です", result.Summary)
 		assert.ElementsMatch(t, []string{"Go", "テスト"}, result.Tags)
 		assert.Equal(t, "テストメモ", result.Memo)
 	})

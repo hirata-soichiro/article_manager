@@ -5,8 +5,8 @@ import (
 	"errors"
 	"sync"
 
-	"article_manager/internal/domain/entity"
-	"article_manager/internal/domain/repository"
+	"article-manager/internal/domain/entity"
+	"article-manager/internal/domain/repository"
 )
 
 // メモリ上で記事を管理するリポジトリ
