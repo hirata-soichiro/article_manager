@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 
 	"article-manager/internal/domain/entity"
@@ -63,6 +64,10 @@ func (r *MemoryArticleRepository) FindAll(ctx context.Context) ([]*entity.Articl
 		copied := *article
 		result = append(result, &copied)
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
 
 	return result, nil
 }
