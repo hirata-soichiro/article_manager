@@ -18,10 +18,10 @@ func NewMySQL(host, port, user, password, dbname string) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("failed to connect to MySQL: %s", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(10)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	db.SetConnMaxIdleTime(5 * time.Minute)
+	db.SetMaxOpenConns(25)                 // 最大オープン接続数
+	db.SetMaxIdleConns(10)                 // アイドル接続の最大数
+	db.SetConnMaxLifetime(5 * time.Minute) // 接続の最大生存時間
+	db.SetConnMaxIdleTime(5 * time.Minute) // アイドル接続の最大保持時間
 
 	return db, nil
 }
