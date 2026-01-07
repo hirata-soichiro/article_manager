@@ -22,10 +22,10 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 	t.Helper()
 
 	host := getEnv("TEST_DB_HOST", "localhost")
-	port := getEnv("TEST_DB_PORT", "3306")
+	port := getEnv("TEST_DB_PORT", "3307")
 	user := getEnv("TEST_DB_USER", "test_user")
 	password := getEnv("TEST_DB_PASSWORD", "test_password")
-	dbname := getEnv("TEST_DB_NAME", "test_article_manager")
+	dbname := getEnv("TEST_DB_NAME", "article_manager_test")
 
 	db, err := database.NewMySQL(host, port, user, password, dbname)
 	if err != nil {
