@@ -9,3 +9,6 @@ todo.txt
 
 # mysql data
 db/test_data/
+
+# env
+.env

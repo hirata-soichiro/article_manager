@@ -32,7 +32,7 @@ func NewMigrationManager(db *sqlx.DB, logger *log.Logger) *MigrationManager {
 }
 
 // マイグレーション実行
-func (m *MigrationManager) RunMigratons() error {
+func (m *MigrationManager) RunMigrations() error {
 	m.logger.Println("マイグレーションを開始します...")
 
 	migrator, err := m.createMigrator()
