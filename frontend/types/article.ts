@@ -4,7 +4,7 @@ export interface Article {
     url: string
     summary: string
     tags: string[]
-    memo?: string
+    memo: string
     createdAt: string
     updatedAt: string
 }
