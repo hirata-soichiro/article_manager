@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-
+import { articleClient } from '@/lib/api/articleClient'
 import { Article } from '@/types/article'
 
 describe('ArticleClient', () => {
