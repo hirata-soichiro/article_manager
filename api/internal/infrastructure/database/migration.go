@@ -39,7 +39,6 @@ func (m *MigrationManager) RunMigrations() error {
 	if err != nil {
 		return fmt.Errorf("マイグレーターの作成に失敗: %w", err)
 	}
-	defer migrator.Close()
 
 	// 最新バージョンを確認
 	currentVersion, dirty, err := migrator.Version()
@@ -85,7 +84,6 @@ func (m *MigrationManager) MigrateDown(steps int) error {
 	if err != nil {
 		return fmt.Errorf("マイグレーターの作成に失敗: %w", err)
 	}
-	defer migrator.Close()
 
 	if steps <= 0 {
 		// 全ロールバック
@@ -118,7 +116,6 @@ func (m *MigrationManager) GetCurrentVersion() (version uint, dirty bool, err er
 	if err != nil {
 		return 0, false, fmt.Errorf("マイグレーターの作成に失敗： %w", err)
 	}
-	defer migrator.Close()
 
 	version, dirty, err = migrator.Version()
 	if err == migrate.ErrNilVersion {

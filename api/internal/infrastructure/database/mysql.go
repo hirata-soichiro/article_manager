@@ -11,7 +11,7 @@ import (
 
 // 接続プールを設定
 func NewMySQL(host, port, user, password, dbname string) (*sqlx.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&Asia%%2FTokyo", user, password, host, port, dbname)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true", user, password, host, port, dbname)
 
 	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {

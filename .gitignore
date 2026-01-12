@@ -9,6 +9,7 @@ todo.txt
 
 # mysql data
 db/test_data/
+db/data
 
 # env
 .env
