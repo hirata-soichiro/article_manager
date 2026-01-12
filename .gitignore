@@ -3,3 +3,13 @@ require/
 
 # Todoリスト
 todo.txt
+
+# claude
+.claude/
+
+# mysql data
+db/test_data/
+db/data
+
+# env
+.env
