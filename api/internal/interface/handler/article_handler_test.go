@@ -22,6 +22,152 @@ func setupHandler() *ArticleHandler {
 	return NewArticleHandler(uc)
 }
 
+// POST /api/articlesのテスト
+func TestCreateArticle(t *testing.T) {
+	t.Run("正常系：記事を作成できる", func(t *testing.T) {
+		handler := setupHandler()
+
+		requestBody := map[string]interface{}{
+			"title":   "Go言語入門",
+			"url":     "https://example.com/go-intro",
+			"summary": "Go言語の基本的な使い方を解説します",
+			"tags":    []string{"Go", "プログラミング"},
+			"memo":    "初心者向けの記事",
+		}
+		body, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/articles", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.CreateArticle(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, "Go言語入門", response["title"])
+		assert.Equal(t, "https://example.com/go-intro", response["url"])
+		assert.NotNil(t, response["id"])
+		assert.NotNil(t, response["created_at"])
+	})
+
+	t.Run("異常系：タイトルが空の場合", func(t *testing.T) {
+		handler := setupHandler()
+
+		requestBody := map[string]interface{}{
+			"title":   "",
+			"url":     "https://example.com/test",
+			"summary": "テスト記事",
+			"tags":    []string{"Test"},
+		}
+		body, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/articles", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.CreateArticle(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response["error"], "title")
+	})
+
+	t.Run("異常系：URLが空の場合", func(t *testing.T) {
+		handler := setupHandler()
+
+		requestBody := map[string]interface{}{
+			"title":   "テスト記事",
+			"url":     "",
+			"summary": "テスト記事の要約",
+			"tags":    []string{"Test"},
+		}
+		body, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/articles", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.CreateArticle(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response["error"], "url")
+	})
+
+	t.Run("異常系：URLが不正な形式の場合", func(t *testing.T) {
+		handler := setupHandler()
+
+		requestBody := map[string]interface{}{
+			"title":   "テスト記事",
+			"url":     "invalid-url",
+			"summary": "テスト記事の要約",
+			"tags":    []string{"Test"},
+		}
+		body, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/articles", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.CreateArticle(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response["error"], "url")
+	})
+
+	t.Run("異常系：要約が空の場合", func(t *testing.T) {
+		handler := setupHandler()
+
+		requestBody := map[string]interface{}{
+			"title":   "テスト記事",
+			"url":     "https://example.com/test",
+			"summary": "",
+			"tags":    []string{"Test"},
+		}
+		body, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/articles", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.CreateArticle(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response["error"], "summary")
+	})
+
+	t.Run("異常系：不正なJSON", func(t *testing.T) {
+		handler := setupHandler()
+
+		invalidJSON := []byte(`{invalid json}`)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/articles", bytes.NewReader(invalidJSON))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.CreateArticle(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+}
+
 // GET /api/articlesのテスト
 func TestGetAllArticles(t *testing.T) {
 	t.Run("正常系：全記事を取得できる", func(t *testing.T) {
