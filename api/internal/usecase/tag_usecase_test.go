@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,7 +96,7 @@ func TestCreateTag(t *testing.T) {
 		mockRepo := &mockTagRepository{}
 		usecase := NewTagUsecase(mockRepo)
 
-		longName := "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"
+		longName := strings.Repeat("あ", 51)
 		result, err := usecase.CreateTag(context.Background(), longName)
 
 		require.Error(t, err)
@@ -243,7 +244,7 @@ func TestGetTagByName(t *testing.T) {
 		}
 
 		mockRepo := &mockTagRepository{
-			findByIDFunc: func(ctx context.Context, id int64) (*entity.Tag, error) {
+			findByNameFunc: func(ctx context.Context, name string) (*entity.Tag, error) {
 				return expected, nil
 			},
 		}
@@ -257,7 +258,7 @@ func TestGetTagByName(t *testing.T) {
 
 	t.Run("異常系：タグが見つからない", func(t *testing.T) {
 		mockRepo := &mockTagRepository{
-			findByIDFunc: func(ctx context.Context, id int64) (*entity.Tag, error) {
+			findByNameFunc: func(ctx context.Context, name string) (*entity.Tag, error) {
 				return nil, errors.New("tag not found")
 			},
 		}

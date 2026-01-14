@@ -32,6 +32,17 @@ func NewTag(name string) (*Tag, error) {
 	return tag, nil
 }
 
+// タグ情報を更新
+func (t *Tag) Update(name string) error {
+	if err := validateTagName(name); err != nil {
+		return err
+	}
+
+	t.Name = name
+	t.UpdatedAt = time.Now()
+	return nil
+}
+
 // タグ名のバリデーション
 func validateTagName(name string) error {
 	// 空文字チェック
