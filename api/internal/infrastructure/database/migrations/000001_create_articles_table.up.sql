@@ -3,10 +3,8 @@ CREATE TABLE IF NOT EXISTS articles (
     title VARCHAR(255) NOT NULL,
     url VARCHAR(2048) NOT NULL,
     summary TEXT NOT NULL,
-    tags JSON NOT NULL DEFAULT (JSON_ARRAY()),
     memo TEXT,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    FULLTEXT INDEX ft_idx_search (title, summary, memo) WITH PARSER ngram,
-    CONSTRAINT chk_tags_is_array CHECK (JSON_TYPE(tags) = 'ARRAY')
+    FULLTEXT INDEX ft_idx_search (title, summary, memo) WITH PARSER ngram
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
