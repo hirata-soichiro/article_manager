@@ -10,7 +10,7 @@ export default function ArticlesPage() {
     // ローディング中の表示
     if (loading) {
         return (
-            <div className="fles justify-center items-center min-h-[400px]">
+            <div className="flex justify-center items-center min-h-[400px]">
                 {/* flex: フレックスボックスで配置 */}
                 {/* justify-center: 横方向の中央揃え */}
                 {/* items-center: 縦方向の中央揃え */}
