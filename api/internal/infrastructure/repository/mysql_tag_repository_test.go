@@ -69,7 +69,7 @@ func cleanupTableForTag(t *testing.T, db *sqlx.DB) {
 }
 
 // テスト用の記事をデータベースに挿入
-func ensureArticleExist(t *testing.T, db *sqlx.DB, count int) []int64 {
+func ensureArticlesExist(t *testing.T, db *sqlx.DB, count int) []int64 {
 	t.Helper()
 
 	articleIDs := make([]int64, count)
@@ -389,7 +389,7 @@ func TestMySQLTagRepository_FindAll(t *testing.T) {
 	})
 }
 
-func TestMySQLArticleRepository_Update(t *testing.T) {
+func TestMySQLTagRepository_Update(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
