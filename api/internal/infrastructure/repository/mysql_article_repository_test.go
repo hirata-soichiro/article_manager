@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -32,12 +31,16 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		t.Skipf("テスト用データベースに接続できません： %v", err)
 	}
 
-	var tableExists int
-	query := "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = 'articles'"
-	err = db.Get(&tableExists, query, dbname)
-	if err != nil || tableExists == 0 {
-		db.Close()
-		t.Skip("articlesテーブルが存在しません")
+	// 必要なテーブルが全て存在するかチェック
+	requiredTables := []string{"articles", "tags", "article_tags"}
+	for _, tableName := range requiredTables {
+		var tableExists int
+		query := "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ?"
+		err = db.Get(&tableExists, query, dbname, tableName)
+		if err != nil || tableExists == 0 {
+			db.Close()
+			t.Skipf("%sテーブルが存在しません", tableName)
+		}
 	}
 
 	return db
@@ -54,8 +57,43 @@ func getEnv(key, defaultValue string) string {
 // テーブルをクリーンアップ
 func cleanupTable(t *testing.T, db *sqlx.DB) {
 	t.Helper()
-	_, err := db.Exec("TRUNCATE TABLE articles")
-	require.NoError(t, err, "テーブルのクリーンアップに失敗")
+
+	_, err := db.Exec("DELETE FROM article_tags")
+	require.NoError(t, err, "article_tagsテーブルのクリーンアップに失敗")
+
+	_, err = db.Exec("DELETE FROM articles")
+	require.NoError(t, err, "articlesテーブルのクリーンアップに失敗")
+
+	_, err = db.Exec("DELETE FROM tags")
+	require.NoError(t, err, "tagsテーブルのクリーンアップに失敗")
+}
+
+// テスト用のタグをデータベースに挿入
+func ensureTagsExist(t *testing.T, db *sqlx.DB, tagNames []string) map[string]int64 {
+	t.Helper()
+
+	tagIDMap := make(map[string]int64)
+
+	for _, tagName := range tagNames {
+		var tagID int64
+		query := `SELECT id FROM tags WHERE name = ?`
+		err := db.Get(&tagID, query, tagName)
+
+		if err == sql.ErrNoRows {
+			insertQuery := `INSERT INTO tags (name) VALUES (?)`
+			result, err := db.Exec(insertQuery, tagName)
+			require.NoError(t, err, "タグの挿入に失敗: %s", tagName)
+
+			tagID, err = result.LastInsertId()
+			require.NoError(t, err, "タグIDの取得に失敗")
+		} else if err != nil {
+			require.NoError(t, err, "タグの検索に失敗")
+		}
+
+		tagIDMap[tagName] = tagID
+	}
+
+	return tagIDMap
 }
 
 // テスト用の記事データを作成
@@ -70,22 +108,30 @@ func createTestArticle(t *testing.T, title, url, summary string, tags []string, 
 func insertArticleDirectly(t *testing.T, db *sqlx.DB, article *entity.Article) int64 {
 	t.Helper()
 
-	tagsJSON, err := json.Marshal(article.Tags)
-	require.NoError(t, err)
-
 	var memo sql.NullString
 	if article.Memo != "" {
 		memo = sql.NullString{String: article.Memo, Valid: true}
 	}
 
-	query := `INSERT INTO articles (title, url, summary, tags, memo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
-	result, err := db.Exec(query, article.Title, article.URL, article.Summary, tagsJSON, memo, article.CreatedAt, article.UpdatedAt)
-	require.NoError(t, err)
+	query := `INSERT INTO articles (title, url, summary, memo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+	result, err := db.Exec(query, article.Title, article.URL, article.Summary, memo, article.CreatedAt, article.UpdatedAt)
+	require.NoError(t, err, "記事の挿入に失敗")
 
-	id, err := result.LastInsertId()
-	require.NoError(t, err)
+	articleID, err := result.LastInsertId()
+	require.NoError(t, err, "記事IDの取得に失敗")
 
-	return id
+	if len(article.Tags) > 0 {
+		tagIDMap := ensureTagsExist(t, db, article.Tags)
+
+		for _, tagName := range article.Tags {
+			tagID := tagIDMap[tagName]
+			insertQuery := `INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)`
+			_, err := db.Exec(insertQuery, articleID, tagID)
+			require.NoError(t, err, "article_tagsの挿入に失敗")
+		}
+	}
+
+	return articleID
 }
 
 func TestMySQLArticleRepository_Create(t *testing.T) {
@@ -94,8 +140,10 @@ func TestMySQLArticleRepository_Create(t *testing.T) {
 
 	t.Run("正常系：記事を作成できる", func(t *testing.T) {
 		cleanupTable(t, db)
-		repo := NewMySQLArticleRepository(db)
 
+		ensureTagsExist(t, db, []string{"Go", "プログラミング"})
+
+		repo := NewMySQLArticleRepository(db)
 		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go", "プログラミング"}, "後で読む")
 
 		ctx := context.Background()
@@ -107,7 +155,7 @@ func TestMySQLArticleRepository_Create(t *testing.T) {
 		assert.Equal(t, article.Title, created.Title)
 		assert.Equal(t, article.URL, created.URL)
 		assert.Equal(t, article.Summary, created.Summary)
-		assert.Equal(t, article.Tags, created.Tags)
+		assert.ElementsMatch(t, article.Tags, created.Tags)
 		assert.Equal(t, article.Memo, created.Memo)
 		assert.False(t, created.CreatedAt.IsZero())
 		assert.False(t, created.UpdatedAt.IsZero())
@@ -130,8 +178,10 @@ func TestMySQLArticleRepository_Create(t *testing.T) {
 
 	t.Run("正常系：メモが空文字列の記事を作成できる", func(t *testing.T) {
 		cleanupTable(t, db)
-		repo := NewMySQLArticleRepository(db)
 
+		ensureTagsExist(t, db, []string{"Go"})
+
+		repo := NewMySQLArticleRepository(db)
 		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
 
 		ctx := context.Background()
@@ -144,8 +194,10 @@ func TestMySQLArticleRepository_Create(t *testing.T) {
 
 	t.Run("正常系：複数の記事を作成できる", func(t *testing.T) {
 		cleanupTable(t, db)
-		repo := NewMySQLArticleRepository(db)
 
+		ensureTagsExist(t, db, []string{"tag1", "tag2"})
+
+		repo := NewMySQLArticleRepository(db)
 		article1 := createTestArticle(t, "記事1", "https://example.com/1", "要約1", []string{"tag1"}, "")
 		article2 := createTestArticle(t, "記事2", "https://example.com/2", "要約2", []string{"tag2"}, "")
 
@@ -172,8 +224,10 @@ func TestMySQLArticleRepository_Create(t *testing.T) {
 
 	t.Run("異常系：キャンセルされたコンテキストではエラー", func(t *testing.T) {
 		cleanupTable(t, db)
-		repo := NewMySQLArticleRepository(db)
 
+		ensureTagsExist(t, db, []string{"Go"})
+
+		repo := NewMySQLArticleRepository(db)
 		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -183,6 +237,21 @@ func TestMySQLArticleRepository_Create(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, created)
+	})
+
+	t.Run("異常系：存在しないタグを指定すると作成に失敗する", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		// タグを事前に作成しない
+		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"NonExistentTag"}, "")
+
+		ctx := context.Background()
+		created, err := repo.Create(ctx, article)
+
+		require.Error(t, err)
+		assert.Nil(t, created)
+		assert.Contains(t, err.Error(), "tag not found")
 	})
 }
 
@@ -206,7 +275,7 @@ func TestMySQLArticleRepository_FindByID(t *testing.T) {
 		assert.Equal(t, article.Title, found.Title)
 		assert.Equal(t, article.URL, found.URL)
 		assert.Equal(t, article.Summary, found.Summary)
-		assert.Equal(t, article.Tags, found.Tags)
+		assert.ElementsMatch(t, article.Tags, found.Tags)
 		assert.Equal(t, article.Memo, found.Memo)
 	})
 
@@ -354,6 +423,22 @@ func TestMySQLArticleRepository_FindAll(t *testing.T) {
 		assert.Empty(t, articles[0].Tags)
 	})
 
+	t.Run("正常系：複数のタグを持つ記事を取得できる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go", "プログラミング", "バックエンド"}, "")
+		insertArticleDirectly(t, db, article)
+
+		ctx := context.Background()
+		articles, err := repo.FindAll(ctx)
+
+		require.NoError(t, err)
+		require.NotNil(t, articles)
+		assert.Len(t, articles, 1)
+		assert.ElementsMatch(t, []string{"Go", "プログラミング", "バックエンド"}, articles[0].Tags)
+	})
+
 	t.Run("異常系：キャンセルされたコンテキストではエラー", func(t *testing.T) {
 		cleanupTable(t, db)
 		repo := NewMySQLArticleRepository(db)
@@ -374,8 +459,10 @@ func TestMySQLArticleRepository_Update(t *testing.T) {
 
 	t.Run("正常系：記事を更新できる", func(t *testing.T) {
 		cleanupTable(t, db)
-		repo := NewMySQLArticleRepository(db)
 
+		ensureTagsExist(t, db, []string{"Go", "完全ガイド"})
+
+		repo := NewMySQLArticleRepository(db)
 		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "後で読む")
 		id := insertArticleDirectly(t, db, article)
 
@@ -393,7 +480,7 @@ func TestMySQLArticleRepository_Update(t *testing.T) {
 		assert.Equal(t, "Go言語完全ガイド", updated.Title)
 		assert.Equal(t, "https://example.com/go-guide", updated.URL)
 		assert.Equal(t, "Go言語の完全版", updated.Summary)
-		assert.Equal(t, []string{"Go", "完全ガイド"}, updated.Tags)
+		assert.ElementsMatch(t, []string{"Go", "完全ガイド"}, updated.Tags)
 		assert.Equal(t, "重要", updated.Memo)
 	})
 
@@ -514,6 +601,25 @@ func TestMySQLArticleRepository_Update(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, updated)
 	})
+
+	t.Run("異常系：存在しないタグで更新しようとするとエラー", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
+		id := insertArticleDirectly(t, db, article)
+
+		article.ID = id
+		err := article.Update("Go言語完全ガイド", "https://example.com/go-guide", "Go言語の完全版", []string{"NonExistentTag"}, "")
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		updated, err := repo.Update(ctx, article)
+
+		require.Error(t, err)
+		assert.Nil(t, updated)
+		assert.Contains(t, err.Error(), "tag not found")
+	})
 }
 
 func TestMySQLArticleRepository_Delete(t *testing.T) {
@@ -536,6 +642,24 @@ func TestMySQLArticleRepository_Delete(t *testing.T) {
 		found, err := repo.FindByID(ctx, id)
 		require.Error(t, err)
 		assert.Nil(t, found)
+	})
+
+	t.Run("正常系：記事を削除するとarticle_tagsも削除される", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go", "プログラミング"}, "")
+		id := insertArticleDirectly(t, db, article)
+
+		ctx := context.Background()
+		err := repo.Delete(ctx, id)
+
+		require.NoError(t, err)
+
+		var count int
+		err = db.Get(&count, "SELECT COUNT(*) FROM article_tags WHERE article_id = ?", id)
+		require.NoError(t, err)
+		assert.Equal(t, 0, count, "article_tagsが削除されていません")
 	})
 
 	t.Run("正常系：複数の記事のうち1つを削除できる", func(t *testing.T) {
