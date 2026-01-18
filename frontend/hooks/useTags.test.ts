@@ -49,7 +49,7 @@ describe('useTags', () => {
 
             // 初期状態を確認
             expect(result.current.loading).toBe(true)
-            expect(result.current.articles).toEqual([])
+            expect(result.current.tags).toEqual([])
             expect(result.current.error).toBeNull()
         })
 
@@ -130,7 +130,7 @@ describe('useTags', () => {
 
             // 新しいタグが追加されたか確認（状態更新完了を待つ）
             await waitFor(() => {
-                expect(result.current.tags).toHaveLength(3)
+                expect(result.current.tags).toHaveLength(4)
             })
             expect(result.current.tags[3]).toEqual(newTag)
             expect(mockCreate).toHaveBeenCalledWith(createInput)
@@ -152,11 +152,11 @@ describe('useTags', () => {
                 expect(result.current.loading).toBe(false)
             })
 
-            const articlesBeforeCreate = [...result.current.articles]
+            const tagsBeforeCreate = [...result.current.tags]
 
             // 作成失敗を実行（エラーがthrowされる）
             try {
-                await result.current.createArticle(createInput)
+                await result.current.createTag(createInput)
             } catch (err) {
                 // エラーが投げられることを期待
             }
@@ -165,7 +165,7 @@ describe('useTags', () => {
             await waitFor(() => {
                 expect(result.current.error).toBe(mockError)
             })
-            expect(result.current.articles).toEqual(articlesBeforeCreate)
+            expect(result.current.tags).toEqual(tagsBeforeCreate)
         })
 
         it('空のタグ名での作成が失敗すること', async () => {
@@ -326,14 +326,14 @@ describe('useTags', () => {
                 expect(result.current.loading).toBe(false)
             })
 
-            expect(result.current.tags).toHaveLength(2)
+            expect(result.current.tags).toHaveLength(3)
 
             // タグ削除を実行
             await result.current.deleteTag(1)
 
             // 該当タグが削除されたか確認（状態更新完了を待つ）
             await waitFor(() => {
-                expect(result.current.tags).toHaveLength(1)
+                expect(result.current.tags).toHaveLength(2)
             })
             expect(result.current.tags.find((t: Tag) => t.id === 1)).toBeUndefined()
             expect(mockDelete).toHaveBeenCalledWith(1)
@@ -412,7 +412,7 @@ describe('useTags', () => {
                 expect(result.current.loading).toBe(false)
             })
 
-            expect(result.current.articles).toHaveLength(3)
+            expect(result.current.tags).toHaveLength(3)
 
             // 再取得を実行
             await result.current.refetch()
