@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -15,14 +14,24 @@ import (
 
 // articlesテーブルとのマッピング
 type articleRow struct {
-	ID        int64           `db:"id"`
-	Title     string          `db:"title"`
-	URL       string          `db:"url"`
-	Summary   string          `db:"summary"`
-	Tags      json.RawMessage `db:"tags"`
-	Memo      sql.NullString  `db:"memo"`
-	CreatedAt sql.NullTime    `db:"created_at"`
-	UpdatedAt sql.NullTime    `db:"updated_at"`
+	ID        int64          `db:"id"`
+	Title     string         `db:"title"`
+	URL       string         `db:"url"`
+	Summary   string         `db:"summary"`
+	Memo      sql.NullString `db:"memo"`
+	CreatedAt sql.NullTime   `db:"created_at"`
+	UpdatedAt sql.NullTime   `db:"updated_at"`
+}
+
+type articleWithTagRow struct {
+	ID        int64          `db:"id"`
+	Title     string         `db:"title"`
+	URL       string         `db:"url"`
+	Summary   string         `db:"summary"`
+	Memo      sql.NullString `db:"memo"`
+	CreatedAt sql.NullTime   `db:"created_at"`
+	UpdatedAt sql.NullTime   `db:"updated_at"`
+	TagName   sql.NullString `db:"tag_name"`
 }
 
 // ArticeleRepositoryのMySQL実装
@@ -41,29 +50,49 @@ func (r *mysqlArticleRepository) Create(ctx context.Context, article *entity.Art
 		return nil, errors.New("article is nil")
 	}
 
-	tagsJson, err := json.Marshal(article.Tags)
+	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal tags: %w", err)
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
 
 	var memo sql.NullString
 	if article.Memo != "" {
 		memo = sql.NullString{String: article.Memo, Valid: true}
 	}
 
-	query := `INSERT INTO articles (title, url, summary, tags, memo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO articles (title, url, summary, memo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
 
-	result, err := r.db.ExecContext(ctx, query, article.Title, article.URL, article.Summary, tagsJson, memo, article.CreatedAt, article.UpdatedAt)
+	result, err := tx.ExecContext(ctx, query, article.Title, article.URL, article.Summary, memo, article.CreatedAt, article.UpdatedAt)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to insert article: %w", err)
 	}
 
-	id, err := result.LastInsertId()
+	articleID, err := result.LastInsertId()
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	return r.FindByID(ctx, id)
+	// タグが指定されている場合、記事とタグの関連付けを保存
+	if len(article.Tags) > 0 {
+		if err := r.insertArticleTags(ctx, tx, articleID, article.Tags); err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return r.FindByID(ctx, articleID)
 }
 
 // 指定されたIDの記事を取得
@@ -72,7 +101,7 @@ func (r *mysqlArticleRepository) FindByID(ctx context.Context, id int64) (*entit
 		return nil, errors.New("invalid id")
 	}
 
-	query := `SELECT id, title, url, summary, tags, memo, created_at, updated_at FROM articles WHERE id = ?`
+	query := `SELECT id, title, url, summary, memo, created_at, updated_at FROM articles WHERE id = ?`
 
 	var row articleRow
 	err := r.db.GetContext(ctx, &row, query, id)
@@ -83,26 +112,71 @@ func (r *mysqlArticleRepository) FindByID(ctx context.Context, id int64) (*entit
 		return nil, fmt.Errorf("failed to find article: %w", err)
 	}
 
-	return rowToEntity(&row)
+	tags, err := r.findTagsByArticleID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find tags: %w", err)
+	}
+
+	return rowToEntity(&row, tags)
 }
 
 // 全ての記事を取得
 func (r *mysqlArticleRepository) FindAll(ctx context.Context) ([]*entity.Article, error) {
-	query := `SELECT id, title, url, summary, tags, memo, created_at, updated_at FROM articles ORDER BY created_at DESC`
+	query := `
+			SELECT
+				a.id,
+				a.title,
+				a.url,
+				a.summary,
+				a.memo,
+				a.created_at,
+				a.updated_at,
+				t.name AS tag_name
+			FROM articles a
+			LEFT JOIN article_tags at ON a.id = at.article_id
+			LEFT JOIN tags t ON at.tag_id = t.id
+			ORDER BY a.created_at DESC, t.name ASC
+	`
 
-	var rows []articleRow
+	var rows []articleWithTagRow
 	err := r.db.SelectContext(ctx, &rows, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find all articles: %w", err)
 	}
 
-	articles := make([]*entity.Article, 0, len(rows))
+	articleMap := make(map[int64]*entity.Article)
+	var articleOrder []int64
+
 	for _, row := range rows {
-		article, err := rowToEntity(&row)
-		if err != nil {
-			return nil, err
+		article, exists := articleMap[row.ID]
+		if !exists {
+			memo := ""
+			if row.Memo.Valid {
+				memo = row.Memo.String
+			}
+
+			article = &entity.Article{
+				ID:        row.ID,
+				Title:     row.Title,
+				URL:       row.URL,
+				Summary:   row.Summary,
+				Tags:      []string{},
+				Memo:      memo,
+				CreatedAt: row.CreatedAt.Time,
+				UpdatedAt: row.UpdatedAt.Time,
+			}
+			articleMap[row.ID] = article
+			articleOrder = append(articleOrder, row.ID)
 		}
-		articles = append(articles, article)
+
+		if row.TagName.Valid && row.TagName.String != "" {
+			article.Tags = append(article.Tags, row.TagName.String)
+		}
+	}
+
+	articles := make([]*entity.Article, 0, len(articleOrder))
+	for _, id := range articleOrder {
+		articles = append(articles, articleMap[id])
 	}
 
 	return articles, nil
@@ -117,29 +191,56 @@ func (r *mysqlArticleRepository) Update(ctx context.Context, article *entity.Art
 		return nil, errors.New("invalid article id")
 	}
 
-	tagsJson, err := json.Marshal(article.Tags)
+	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal tags: %w", err)
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
 
 	var memo sql.NullString
 	if article.Memo != "" {
 		memo = sql.NullString{String: article.Memo, Valid: true}
 	}
 
-	query := `UPDATE articles SET title = ?, url = ?, summary = ?, tags = ?, memo = ?, updated_at = ? WHERE id = ?`
+	query := `UPDATE articles SET title = ?, url = ?, summary = ?, memo = ?, updated_at = ? WHERE id = ?`
 
-	result, err := r.db.ExecContext(ctx, query, article.Title, article.URL, article.Summary, tagsJson, memo, article.UpdatedAt, article.ID)
+	result, err := tx.ExecContext(ctx, query, article.Title, article.URL, article.Summary, memo, article.UpdatedAt, article.ID)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to update article: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("article not found: id=%d", article.ID)
+	}
+
+	deleteQuery := `DELETE FROM article_tags WHERE article_id = ?`
+	_, err = tx.ExecContext(ctx, deleteQuery, article.ID)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to delete article tags: %w", err)
+	}
+
+	if len(article.Tags) > 0 {
+		if err := r.insertArticleTags(ctx, tx, article.ID, article.Tags); err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return r.FindByID(ctx, article.ID)
@@ -151,31 +252,95 @@ func (r *mysqlArticleRepository) Delete(ctx context.Context, id int64) error {
 		return errors.New("invalid id")
 	}
 
-	query := `DELETE FROM articles WHERE id = ?`
-
-	result, err := r.db.ExecContext(ctx, query, id)
+	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	deleteTagsQuery := `DELETE FROM article_tags WHERE article_id = ?`
+	_, err = tx.ExecContext(ctx, deleteTagsQuery, id)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("failed to delete article: %w", err)
+	}
+
+	deleteArticleQuery := `DELETE FROM articles WHERE id = ?`
+	result, err := tx.ExecContext(ctx, deleteArticleQuery, id)
+	if err != nil {
+		_ = tx.Rollback()
 		return fmt.Errorf("failed to delete article: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		_ = tx.Rollback()
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
+		_ = tx.Rollback()
 		return fmt.Errorf("article not found: id=%d", id)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
 }
 
-// artibleRowをentity.Articleに変換
-func rowToEntity(row *articleRow) (*entity.Article, error) {
-	var tags []string
-	if err := json.Unmarshal(row.Tags, &tags); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tags: %w", err)
+func (r *mysqlArticleRepository) insertArticleTags(ctx context.Context, tx *sqlx.Tx, articleID int64, tagNames []string) error {
+	for _, tagName := range tagNames {
+		// タグ名かからタグIDを取得
+		var tagID int64
+		query := `SELECT id FROM tags WHERE name = ?`
+		err := tx.GetContext(ctx, &tagID, query, tagName)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("tag not found: name=%s", tagName)
+			}
+			return fmt.Errorf("failed to find tag: %w", err)
+		}
+
+		// article_tagsテーブルに関連付けを保存
+		insertQuery := `INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertQuery, articleID, tagID)
+		if err != nil {
+			return fmt.Errorf("failed to insert article tag: %w", err)
+		}
 	}
 
+	return nil
+}
+
+func (r *mysqlArticleRepository) findTagsByArticleID(ctx context.Context, articleID int64) ([]string, error) {
+	query := `
+			SELECT t.name
+			FROM tags t
+			INNER JOIN article_tags at ON t.id = at.tag_id
+			WHERE at.article_id = ?
+			ORDER BY t.name ASC
+	`
+
+	var tags []string
+	err := r.db.SelectContext(ctx, &tags, query, articleID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to select tags: %w", err)
+	}
+	if tags == nil {
+		tags = []string{}
+	}
+
+	return tags, nil
+}
+
+// artibleRowをentity.Articleに変換
+func rowToEntity(row *articleRow, tags []string) (*entity.Article, error) {
 	memo := ""
 	if row.Memo.Valid {
 		memo = row.Memo.String

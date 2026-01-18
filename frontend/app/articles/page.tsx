@@ -1,16 +1,32 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import { useArticles } from '@/hooks/useArticles'
+import { useTags } from '@/hooks/useTags'
 import ArticleCard from "@/components/ArticleCard"
 import { Article } from '@/types/article'
 
 export default function ArticlesPage() {
-    const { articles, loading, error } = useArticles()
+    const { articles, loading: articlesLoading, error: articlesError } = useArticles()
+    const { tags, loading: tagsLoading } = useTags()
+    const [selectedTag, setSelectedTag] = useState<string | null>(null)
+
+    // ローディング状態を統合
+    const loading = articlesLoading || tagsLoading
+
+    // 選択されたタグに基づいて記事をフィルタリング
+    const filteredArticles = useMemo(() => {
+        if (!selectedTag) {
+            // タグが選択されていない場合は全記事を表示
+            return articles
+        }
+        return articles.filter(article => article.tags.includes(selectedTag))
+    }, [articles, selectedTag])
 
     // ローディング中の表示
     if (loading) {
         return (
-            <div className="fles justify-center items-center min-h-[400px]">
+            <div className="flex justify-center items-center min-h-[400px]">
                 {/* flex: フレックスボックスで配置 */}
                 {/* justify-center: 横方向の中央揃え */}
                 {/* items-center: 縦方向の中央揃え */}
@@ -36,7 +52,7 @@ export default function ArticlesPage() {
     }
 
     // エラー発生時の表示
-    if (error) {
+    if (articlesError) {
         return (
             <div className="flex jusify-center items-center min-h-[400px]">
                 <div className="text-center">
@@ -64,7 +80,7 @@ export default function ArticlesPage() {
                         {/* text-xl: テキストサイズ大 */}
                         {/* font-bold: 太字 */}
 
-                        <p className="text-gray-600">{error.message}</p>
+                        <p className="text-gray-600">{articlesError.message}</p>
                         {/* エラーメッセージを表示 */}
                     </div>
 
@@ -122,34 +138,81 @@ export default function ArticlesPage() {
 
                 <p className="text-gray-600 mt-2">
                     {/* mt-2: 上の余白2単位 */}
-                    全 {articles.length} 件の記事
-                    {/* articles.length: 配列の要素数（記事の数） */}
+                    {selectedTag
+                        ? `「${selectedTag}」のタグを持つ記事: ${filteredArticles.length}件`
+                        : `全 ${articles.length} 件の記事`
+                    }
                 </p>
             </div>
 
-            {/* 記事カード一覧（グリッドレイアウト） */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* grid: グリッド（格子状）レイアウト */}
-                {/* grid-cols-1: デフォルトは1列（スマホサイズ） */}
-                {/* md:grid-cols-2: 中サイズ画面（タブレット）では2列 */}
-                {/* lg:grid-cols-3: 大サイズ画面（PC）では3列 */}
-                {/* gap-6: グリッド間の間隔6単位 */}
+            {/* タグフィルター */}
+            {tags.length > 0 && (
+                <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
+                    <h2 className="text-sm font-semibold text-gray-700 mb-3">タグで絞り込み</h2>
+                    <div className="flex flex-wrap gap-2">
+                        {/* 「すべて」ボタン */}
+                        <button
+                            onClick={() => setSelectedTag(null)}
+                            className={`
+                                px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                                ${selectedTag === null
+                                    ? 'bg-blue-600 text-white shadow-md'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }
+                            `}
+                        >
+                            すべて ({articles.length})
+                        </button>
 
-                {articles.map((article) => (
-                    // map(): 配列の各要素に対して処理を実行
-                    // articles配列の各記事に対してArticleCardコンポーネントを作成
+                        {/* 各タグのボタン */}
+                        {tags.map(tag => {
+                            const count = articles.filter(article =>
+                                article.tags.includes(tag.name)
+                            ).length
 
-                    <ArticleCard 
-                        key={article.id}
-                        // key: Reactが各要素を識別するための一意な値
-                        // 記事のIDを使用（重複しない値）
+                            return (
+                                <button
+                                    key={tag.id}
+                                    onClick={() => setSelectedTag(tag.name)}
+                                    className={`
+                                        px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                                        ${selectedTag === tag.name
+                                            ? 'bg-blue-600 text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
+                                        }
+                                    `}
+                                >
+                                    {tag.name} ({count})
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
 
-                        article={article}
-                        // article: ArticleCardコンポーネントに渡すプロパティ
-                        // 記事の全情報（タイトル、URL、要約、タグなど）が入っている
-                    />
-                ))}
-            </div>
+            {/* フィルター後の記事一覧 */}
+            {filteredArticles.length === 0 ? (
+                <div className="flex justify-center items-center min-h-[200px]">
+                    <div className="text-center text-gray-500">
+                        <p className="text-lg">「{selectedTag}」タグの記事が見つかりません</p>
+                        <button
+                            onClick={() => setSelectedTag(null)}
+                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        >
+                            すべての記事を表示
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredArticles.map((article) => (
+                        <ArticleCard 
+                            key={article.id}
+                            article={article}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     )
 }

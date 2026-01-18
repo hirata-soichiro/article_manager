@@ -45,10 +45,15 @@ func main() {
 		logger.Fatalf("マイグレーション実行に失敗: %v", err)
 	}
 
-	// 依存性注入
+	// 依存性注入(article)
 	articleRepo := repository.NewMySQLArticleRepository(db)
 	articleUsecase := usecase.NewArticleUsecase(articleRepo)
 	articleHandler := handler.NewArticleHandler(articleUsecase)
+
+	// 依存性注入(tag)
+	tagRepo := repository.NewMySQLTagRepository(db)
+	tagUsecase := usecase.NewTagUsecase(tagRepo)
+	tagHandler := handler.NewTagHandler(tagUsecase)
 
 	// HTTPルーターの設定
 	mux := http.NewServeMux()
@@ -74,6 +79,21 @@ func main() {
 
 	// 記事削除
 	mux.HandleFunc("DELETE /api/articles/{id}", extractArticleID(articleHandler.DeleteArticle))
+
+	// タグ一覧取得
+	mux.HandleFunc("GET /api/tags", tagHandler.GetAllTags)
+
+	// タグ作成
+	mux.HandleFunc("POST /api/tags", tagHandler.CreateTag)
+
+	// タグ詳細取得
+	mux.HandleFunc("GET /api/tags/{id}", extractTagID(tagHandler.GetTagByID))
+
+	// タグ更新
+	mux.HandleFunc("PUT /api/tags/{id}", extractTagID(tagHandler.UpdateTag))
+
+	// タグ削除
+	mux.HandleFunc("DELETE /api/tags/{id}", extractTagID(tagHandler.DeleteTag))
 
 	// CORSミドルウェアの設定
 	corsMiddleware := func(next http.Handler) http.Handler {
@@ -196,6 +216,18 @@ func extractArticleID(next func(http.ResponseWriter, *http.Request, int64)) http
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
 			http.Error(w, "Invalid article ID", http.StatusBadRequest)
+			return
+		}
+		next(w, r, id)
+	}
+}
+
+func extractTagID(next func(http.ResponseWriter, *http.Request, int64)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid tag ID", http.StatusBadRequest)
 			return
 		}
 		next(w, r, id)

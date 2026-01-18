@@ -1,4 +1,5 @@
 import { Article } from '@/types/article'
+import TagList from './TagList' 
 
 interface ArticleCardProps {
     article: Article
@@ -37,19 +38,8 @@ export default function ArticleCard({ article }: ArticleCardProps) {
                 {article.summary}
             </p>
 
-            <div className="flex flex-wrap gap-2 mb-3">
-                {/* flex: 横並び */}
-                {/* flex-wrap: 幅が足りない時に折り返す */}
-                {/* gap-2: 要素間の間隔2単位 */}
-
-                {article.tags.map((tag) => (
-                    <span
-                        key={tag}
-                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
-                    >
-                        {tag}
-                    </span>
-                ))}
+            <div className="mb-3">
+                <TagList tags={article.tags} />
             </div>
 
             {article.memo && (
