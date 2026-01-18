@@ -232,9 +232,6 @@ export default function TagsPage() {
                                             <span className="text-lg font-medium text-gray-800">
                                                 {tag.name}
                                             </span>
-                                            <p className="text-sm text-gray-500 mt-1">
-                                                作成日: {new Date(tag.createdAt).toLocaleDateString('ja-JP')}
-                                            </p>
                                         </div>
                                         <div className="flex gap-2">
                                             <button

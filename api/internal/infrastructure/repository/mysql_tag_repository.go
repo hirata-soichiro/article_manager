@@ -45,7 +45,7 @@ func (r *mysqlTagRepository) Create(ctx context.Context, tag *entity.Tag) (*enti
 		// UNIQUE制約違反のチェック
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 			if mysqlErr.Number == 1062 {
-				return nil, fmt.Errorf("failed to insert tag: %w", err)
+				return nil, fmt.Errorf("tag with name '%s' already exists", tag.Name)
 			}
 		}
 		return nil, fmt.Errorf("failed to insert tag: %w", err)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"article-manager/internal/domain/entity"
 	"article-manager/internal/usecase"
@@ -176,10 +177,13 @@ func (h *TagHandler) respondError(w http.ResponseWriter, statusCode int, message
 
 // エンティティをレスポンス形式に変換する
 func toTagResponse(tag *entity.Tag) TagResponse {
+	// JSTに変換
+	jst, _ := time.LoadLocation("Asia/Tokyo")
+
 	return TagResponse{
 		ID:        tag.ID,
 		Name:      tag.Name,
-		CreatedAt: tag.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: tag.UpdatedAt.Format("2006-01-02 15:04:05"),
+		CreatedAt: tag.CreatedAt.In(jst).Format("2006-01-02 15:04:05"),
+		UpdatedAt: tag.UpdatedAt.In(jst).Format("2006-01-02 15:04:05"),
 	}
 }

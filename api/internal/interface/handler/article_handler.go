@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"article-manager/internal/domain/entity"
 	"article-manager/internal/usecase"
@@ -183,6 +184,9 @@ func (h *ArticleHandler) respondError(w http.ResponseWriter, statusCode int, mes
 
 // エンティティをレスポンス形式に変換する
 func toArticleResponse(article *entity.Article) ArticleResponse {
+	// JSTに変換
+	jst, _ := time.LoadLocation("Asia/Tokyo")
+
 	return ArticleResponse{
 		ID:        article.ID,
 		Title:     article.Title,
@@ -190,8 +194,8 @@ func toArticleResponse(article *entity.Article) ArticleResponse {
 		Summary:   article.Summary,
 		Tags:      article.Tags,
 		Memo:      article.Memo,
-		CreatedAt: article.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt: article.UpdatedAt.Format("2006-01-02 15:04:05"),
+		CreatedAt: article.CreatedAt.In(jst).Format("2006-01-02 15:04:05"),
+		UpdatedAt: article.UpdatedAt.In(jst).Format("2006-01-02 15:04:05"),
 	}
 }
 
@@ -207,6 +211,7 @@ func isValidationError(err error) bool {
 		"must be",
 		"cannot be empty",
 		"must start with",
+		"already exists",
 	}
 
 	for _, keyword := range validationKeywords {

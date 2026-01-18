@@ -83,6 +83,9 @@ func main() {
 	// タグ一覧取得
 	mux.HandleFunc("GET /api/tags", tagHandler.GetAllTags)
 
+	// タグ作成
+	mux.HandleFunc("POST /api/tags", tagHandler.CreateTag)
+
 	// タグ詳細取得
 	mux.HandleFunc("GET /api/tags/{id}", extractTagID(tagHandler.GetTagByID))
 
