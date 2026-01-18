@@ -17,16 +17,16 @@ describe('TagClient', () => {
     const mockApiTag = {
         id: 1,
         name: 'Go',
-        created_at: '2024-01-01T10:00:00Z',
-        updated_at: '2024-01-01T10:00:00Z',
+        created_at: '2024-01-01 10:00:00',
+        updated_at: '2024-01-01 10:00:00',
     }
 
     // フロントエンドで期待される形式
     const expectedTag: Tag = {
         id: 1,
         name: 'Go',
-        createdAt: '2024-01-01T10:00:00Z',
-        updatedAt: '2024-01-01T10:00:00Z',
+        createdAt: '2024-01-01 10:00:00',
+        updatedAt: '2024-01-01 10:00:00',
     }
 
     // タグ一覧取得のテスト
@@ -178,8 +178,8 @@ describe('TagClient', () => {
             const mockCreatedTag = {
                 id: 10,
                 name: 'Rust',
-                created_at: '2024-01-02T10:00:00Z',
-                updated_at: '2024-01-02T10:00:00Z',
+                created_at: '2024-01-02 10:00:00',
+                updated_at: '2024-01-02 10:00:00',
             }
 
             // API成功レスポンスをモック化
@@ -271,8 +271,8 @@ describe('TagClient', () => {
             const mockUpdatedTag = {
                 id: 1,
                 name: 'Golang',
-                created_at: '2024-01-01T10:00:00Z',
-                updated_at: '2024-01-02T12:00:00Z',
+                created_at: '2024-01-01 10:00:00',
+                updated_at: '2024-01-02 12:00:00',
             }
 
             // API成功レスポンスをモック化
@@ -409,8 +409,8 @@ describe('TagClient', () => {
             const apiResponse = {
                 id: 1,
                 name: 'Go',
-                created_at: '2024-01-01T10:00:00Z',
-                updated_at: '2024-01-01T11:00:00Z',
+                created_at: '2024-01-01 10:00:00',
+                updated_at: '2024-01-01 11:00:00',
             }
 
             // API成功レスポンスをモック化
@@ -436,14 +436,14 @@ describe('TagClient', () => {
                 {
                     id: 1,
                     name: 'Go',
-                    created_at: '2024-01-01T10:00:00Z',
-                    updated_at: '2024-01-01T10:00:00Z',
+                    created_at: '2024-01-01 10:00:00',
+                    updated_at: '2024-01-01 10:00:00',
                 },
                 {
                     id: 2,
                     name: 'React',
-                    created_at: '2024-01-02T10:00:00Z',
-                    updated_at: '2024-01-02T10:00:00Z',
+                    created_at: '2024-01-02 10:00:00',
+                    updated_at: '2024-01-02 10:00:00',
                 },
             ]
 
