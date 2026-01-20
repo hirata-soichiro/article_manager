@@ -4,11 +4,11 @@ import ArticleForm from '@/components/ArticleForm'
 import { articleClient } from '@/lib/api/articleClient'
 import { tagClient } from '@/lib/api/tagClient'
 
-// apiクライアントをモック化
+// API クライアントをモック化
 vi.mock('@/lib/api/articleClient')
 vi.mock('@/lib/api/tagClient')
 
-// next.jsのuseRouterをモック化
+// Next.jsのuseRouterをモック化
 const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({
     useRouter: () => ({
@@ -37,11 +37,11 @@ describe('ArticleForm', () => {
             render(<ArticleForm />)
 
             // フォーム要素が存在することを確認
-            expect(screen.getByLabelText(/タイトル/i)).toBeInTheDocument()
-            expect(screen.getByLabelText(/URL/i)).toBeInTheDocument()
-            expect(screen.getByLabelText(/要約/i)).toBeInTheDocument()
-            expect(screen.getByLabelText(/メモ/i)).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /登録/i })).toBeInTheDocument()
+            expect(screen.getByLabelText(/タイトル/)).toBeInTheDocument()
+            expect(screen.getByLabelText(/URL/)).toBeInTheDocument()
+            expect(screen.getByLabelText(/要約/)).toBeInTheDocument()
+            expect(screen.getByLabelText(/メモ/)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /登録/ })).toBeInTheDocument()
         })
 
         it('タグ一覧が表示される', async () => {
@@ -59,7 +59,7 @@ describe('ArticleForm', () => {
         it('初期状態では送信ボタンが無効', () => {
             render(<ArticleForm />)
 
-            const submitButton = screen.getByRole('button', { name: /登録/i })
+            const submitButton = screen.getByRole('button', { name: /登録/ })
             expect(submitButton).toBeDisabled()
         })
     })
@@ -68,7 +68,7 @@ describe('ArticleForm', () => {
         it('タイトルを入力できる', () => {
             render(<ArticleForm />)
 
-            const titleInput = screen.getByLabelText(/タイトル/i) as HTMLInputElement
+            const titleInput = screen.getByLabelText(/タイトル/) as HTMLInputElement
             fireEvent.change(titleInput, { target: { value: 'Go言語入門' } })
 
             expect(titleInput.value).toBe('Go言語入門')
@@ -77,7 +77,7 @@ describe('ArticleForm', () => {
         it('URLを入力できる', () => {
             render(<ArticleForm />)
 
-            const urlInput = screen.getByLabelText(/URL/i) as HTMLInputElement
+            const urlInput = screen.getByLabelText(/URL/) as HTMLInputElement
             fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
 
             expect(urlInput.value).toBe('https://example.com')
@@ -86,7 +86,7 @@ describe('ArticleForm', () => {
         it('要約を入力できる', () => {
             render(<ArticleForm />)
 
-            const summaryInput = screen.getByLabelText(/要約/i) as HTMLTextAreaElement
+            const summaryInput = screen.getByLabelText(/要約/) as HTMLTextAreaElement
             fireEvent.change(summaryInput, { target: { value: 'Go言語の基礎を学びます' } })
 
             expect(summaryInput.value).toBe('Go言語の基礎を学びます')
@@ -95,7 +95,7 @@ describe('ArticleForm', () => {
         it('メモを入力できる', () => {
             render(<ArticleForm />)
 
-            const memoInput = screen.getByLabelText(/メモ/i) as HTMLTextAreaElement
+            const memoInput = screen.getByLabelText(/メモ/) as HTMLTextAreaElement
             fireEvent.change(memoInput, { target: { value: '後で読む' } })
 
             expect(memoInput.value).toBe('後で読む')
@@ -106,9 +106,9 @@ describe('ArticleForm', () => {
         it('タイトルが空の場合、エラーメッセージが表示される', async () => {
             render(<ArticleForm />)
 
-            const titleInput = screen.getByLabelText(/タイトル/i)
-            const urlInput = screen.getByLabelText(/URL/i)
-            const summaryInput = screen.getByLabelText(/要約/i)
+            const titleInput = screen.getByLabelText(/タイトル/)
+            const urlInput = screen.getByLabelText(/URL/)
+            const summaryInput = screen.getByLabelText(/要約/)
 
             // タイトルを空のまま、他を入力
             fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
@@ -119,63 +119,63 @@ describe('ArticleForm', () => {
             fireEvent.blur(titleInput)
 
             await waitFor(() => {
-                expect(screen.getByText(/タイトルは必須です/i)).toBeInTheDocument()
+                expect(screen.getByText(/タイトルは必須です/)).toBeInTheDocument()
             })
         })
 
         it('URLが空の場合、エラーメッセージが表示される', async () => {
             render(<ArticleForm />)
 
-            const urlInput = screen.getByLabelText(/URL/i)
+            const urlInput = screen.getByLabelText(/URL/)
 
             // URLにフォーカスして離れる（blur）
             fireEvent.focus(urlInput)
             fireEvent.blur(urlInput)
 
             await waitFor(() => {
-                expect(screen.getByText(/URLは必須です/i)).toBeInTheDocument()
+                expect(screen.getByText(/URLは必須です/)).toBeInTheDocument()
             })
         })
 
         it('URLの形式が不正な場合、エラーメッセージが表示される', async () => {
             render(<ArticleForm />)
 
-            const urlInput = screen.getByLabelText(/URL/i)
+            const urlInput = screen.getByLabelText(/URL/)
             fireEvent.change(urlInput, { target: { value: 'invalid-url' } })
             fireEvent.blur(urlInput)
 
             await waitFor(() => {
-                expect(screen.getByText(/正しいURL形式で入力してください/i)).toBeInTheDocument()
+                expect(screen.getByText(/正しいURL形式で入力してください/)).toBeInTheDocument()
             })
         })
 
         it('要約が空の場合、エラーメッセージが表示される', async () => {
             render(<ArticleForm />)
 
-            const summaryInput = screen.getByLabelText(/要約/i)
+            const summaryInput = screen.getByLabelText(/要約/)
 
             // 要約にフォーカスして離れる（blur）
             fireEvent.focus(summaryInput)
             fireEvent.blur(summaryInput)
 
             await waitFor(() => {
-                expect(screen.getByText(/要約は必須です/i)).toBeInTheDocument()
+                expect(screen.getByText(/要約は必須です/)).toBeInTheDocument()
             })
         })
 
         it('すべての必須項目が入力されている場合、送信ボタンが有効になる', async () => {
             render(<ArticleForm />)
 
-            const titleInput = screen.getByLabelText(/タイトル/i)
-            const urlInput = screen.getByLabelText(/URL/i)
-            const summaryInput = screen.getByLabelText(/要約/i)
+            const titleInput = screen.getByLabelText(/タイトル/)
+            const urlInput = screen.getByLabelText(/URL/)
+            const summaryInput = screen.getByLabelText(/要約/)
 
             fireEvent.change(titleInput, { target: { value: 'Go言語入門' } })
             fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
             fireEvent.change(summaryInput, { target: { value: 'Go言語の基礎を学びます' } })
 
             await waitFor(() => {
-                const submitButton = screen.getByRole('button', { name: /登録/i })
+                const submitButton = screen.getByRole('button', { name: /登録/ })
                 expect(submitButton).not.toBeDisabled()
             })
         })
@@ -190,12 +190,14 @@ describe('ArticleForm', () => {
                 expect(screen.getByText('Go')).toBeInTheDocument()
             })
 
-            const goTag = screen.getByText('Go')
-            fireEvent.click(goTag)
+            const goTagButton = screen.getByText('Go').closest('button')
+            expect(goTagButton).toBeTruthy()
 
-            // 選択状態のスタイルが適用される（例：背景色が変わる）
+            fireEvent.click(goTagButton!)
+
+            // 選択状態のスタイルが適用される
             await waitFor(() => {
-                expect(goTag.closest('button')).toHaveClass('bg-blue-600')
+                expect(goTagButton).toHaveClass('bg-blue-600')
             })
         })
 
@@ -206,15 +208,15 @@ describe('ArticleForm', () => {
                 expect(screen.getByText('Go')).toBeInTheDocument()
             })
 
-            const goTag = screen.getByText('Go')
-            const reactTag = screen.getByText('React')
+            const goTagButton = screen.getByText('Go').closest('button')
+            const reactTagButton = screen.getByText('React').closest('button')
 
-            fireEvent.click(goTag)
-            fireEvent.click(reactTag)
+            fireEvent.click(goTagButton!)
+            fireEvent.click(reactTagButton!)
 
             await waitFor(() => {
-                expect(goTag.closest('button')).toHaveClass('bg-blue-600')
-                expect(reactTag.closest('button')).toHaveClass('bg-blue-600')
+                expect(goTagButton).toHaveClass('bg-blue-600')
+                expect(reactTagButton).toHaveClass('bg-blue-600')
             })
         })
 
@@ -225,18 +227,18 @@ describe('ArticleForm', () => {
                 expect(screen.getByText('Go')).toBeInTheDocument()
             })
 
-            const goTag = screen.getByText('Go')
+            const goTagButton = screen.getByText('Go').closest('button')
 
             // 選択
-            fireEvent.click(goTag)
+            fireEvent.click(goTagButton!)
             await waitFor(() => {
-                expect(goTag.closest('button')).toHaveClass('bg-blue-600')
+                expect(goTagButton).toHaveClass('bg-blue-600')
             })
 
             // 選択解除
-            fireEvent.click(goTag)
+            fireEvent.click(goTagButton!)
             await waitFor(() => {
-                expect(goTag.closest('button')).not.toHaveClass('bg-blue-600')
+                expect(goTagButton).not.toHaveClass('bg-blue-600')
             })
         })
     })
@@ -264,10 +266,10 @@ describe('ArticleForm', () => {
             })
 
             // フォーム入力
-            const titleInput = screen.getByLabelText(/タイトル/i)
-            const urlInput = screen.getByLabelText(/URL/i)
-            const summaryInput = screen.getByLabelText(/要約/i)
-            const memoInput = screen.getByLabelText(/メモ/i)
+            const titleInput = screen.getByLabelText(/タイトル/)
+            const urlInput = screen.getByLabelText(/URL/)
+            const summaryInput = screen.getByLabelText(/要約/)
+            const memoInput = screen.getByLabelText(/メモ/)
 
             fireEvent.change(titleInput, { target: { value: 'Go言語入門' } })
             fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
@@ -275,11 +277,11 @@ describe('ArticleForm', () => {
             fireEvent.change(memoInput, { target: { value: '後で読む' } })
 
             // タグを選択
-            const goTag = screen.getByText('Go')
-            fireEvent.click(goTag)
+            const goTagButton = screen.getByText('Go').closest('button')
+            fireEvent.click(goTagButton!)
 
             // フォーム送信
-            const submitButton = screen.getByRole('button', { name: /登録/i })
+            const submitButton = screen.getByRole('button', { name: /登録/ })
             fireEvent.click(submitButton)
 
             // API が呼ばれたことを確認
@@ -314,16 +316,16 @@ describe('ArticleForm', () => {
             render(<ArticleForm />)
 
             // フォーム入力（必須項目のみ）
-            const titleInput = screen.getByLabelText(/タイトル/i)
-            const urlInput = screen.getByLabelText(/URL/i)
-            const summaryInput = screen.getByLabelText(/要約/i)
+            const titleInput = screen.getByLabelText(/タイトル/)
+            const urlInput = screen.getByLabelText(/URL/)
+            const summaryInput = screen.getByLabelText(/要約/)
 
             fireEvent.change(titleInput, { target: { value: 'React入門' } })
             fireEvent.change(urlInput, { target: { value: 'https://example.com/react' } })
             fireEvent.change(summaryInput, { target: { value: 'Reactの基礎を学びます' } })
 
             // フォーム送信
-            const submitButton = screen.getByRole('button', { name: /登録/i })
+            const submitButton = screen.getByRole('button', { name: /登録/ })
             fireEvent.click(submitButton)
 
             // API が呼ばれたことを確認
@@ -347,21 +349,21 @@ describe('ArticleForm', () => {
             render(<ArticleForm />)
 
             // フォーム入力
-            const titleInput = screen.getByLabelText(/タイトル/i)
-            const urlInput = screen.getByLabelText(/URL/i)
-            const summaryInput = screen.getByLabelText(/要約/i)
+            const titleInput = screen.getByLabelText(/タイトル/)
+            const urlInput = screen.getByLabelText(/URL/)
+            const summaryInput = screen.getByLabelText(/要約/)
 
             fireEvent.change(titleInput, { target: { value: 'テスト記事' } })
             fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
             fireEvent.change(summaryInput, { target: { value: 'テスト要約' } })
 
             // フォーム送信
-            const submitButton = screen.getByRole('button', { name: /登録/i })
+            const submitButton = screen.getByRole('button', { name: /登録/ })
             fireEvent.click(submitButton)
 
             // エラーメッセージが表示されることを確認
             await waitFor(() => {
-                expect(screen.getByText(/記事の作成に失敗しました/i)).toBeInTheDocument()
+                expect(screen.getByText(/記事の作成に失敗しました/)).toBeInTheDocument()
             })
 
             // リダイレクトされないことを確認
@@ -386,22 +388,22 @@ describe('ArticleForm', () => {
             render(<ArticleForm />)
 
             // フォーム入力
-            const titleInput = screen.getByLabelText(/タイトル/i)
-            const urlInput = screen.getByLabelText(/URL/i)
-            const summaryInput = screen.getByLabelText(/要約/i)
+            const titleInput = screen.getByLabelText(/タイトル/)
+            const urlInput = screen.getByLabelText(/URL/)
+            const summaryInput = screen.getByLabelText(/要約/)
 
             fireEvent.change(titleInput, { target: { value: 'テスト記事' } })
             fireEvent.change(urlInput, { target: { value: 'https://example.com' } })
             fireEvent.change(summaryInput, { target: { value: 'テスト要約' } })
 
             // フォーム送信
-            const submitButton = screen.getByRole('button', { name: /登録/i })
+            const submitButton = screen.getByRole('button', { name: /登録/ })
             fireEvent.click(submitButton)
 
             // 送信中はボタンが無効になることを確認
             await waitFor(() => {
                 expect(submitButton).toBeDisabled()
-                expect(screen.getByText(/登録中.../i)).toBeInTheDocument()
+                expect(screen.getByText(/登録中.../)).toBeInTheDocument()
             })
         })
     })
@@ -413,7 +415,7 @@ describe('ArticleForm', () => {
             render(<ArticleForm />)
 
             await waitFor(() => {
-                expect(screen.getByText(/タグの読み込みに失敗しました/i)).toBeInTheDocument()
+                expect(screen.getByText(/タグの読み込みに失敗しました/)).toBeInTheDocument()
             })
         })
     })
@@ -422,7 +424,7 @@ describe('ArticleForm', () => {
         it('キャンセルボタンをクリックすると記事一覧に戻る', () => {
             render(<ArticleForm />)
 
-            const cancelButton = screen.getByRole('button', { name: /キャンセル/i })
+            const cancelButton = screen.getByRole('button', { name: /キャンセル/ })
             fireEvent.click(cancelButton)
 
             expect(mockPush).toHaveBeenCalledWith('/articles')
