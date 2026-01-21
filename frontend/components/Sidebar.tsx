@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function Sidebar() {
     return (
-        <aside className="w-64 bg-gray-100 min-h-secreen p-6">
+        <aside className="w-64 bg-gray-100 min-h-screen p-6">
             {/* aside: サイドバー用のHTML要素 */}
             {/* w-64: 幅を64単位（256px） */}
             {/* bg-gray-100: 薄いグレー背景 */}
