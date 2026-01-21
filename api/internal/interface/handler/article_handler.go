@@ -117,7 +117,7 @@ func (h *ArticleHandler) CreateArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, toArticleResponse(article))
+	h.respondJSON(w, http.StatusCreated, toArticleResponse(article))
 }
 
 // 記事を更新する

@@ -1,4 +1,4 @@
-import { Article } from '@/types/article'
+import { Article, CreateArticleInput, UpdateArticleInput } from '@/types/article'
 
 // APIから返却される記事データの型
 interface ApiArticle {
@@ -10,15 +10,6 @@ interface ApiArticle {
     memo: string | null
     created_at: string
     updated_at: string
-}
-
-// 記事作成・更新時のリクエストボディの型
-interface ArticleRequest {
-    title: string
-    url: string
-    summary: string
-    tags: string[]
-    memo?: string
 }
 
 // APIのベースURL
@@ -60,7 +51,7 @@ class ArticleClient {
     }
 
     // 記事を作成
-    async create(article: ArticleRequest): Promise<Article> {
+    async create(article: CreateArticleInput): Promise<Article> {
         try {
             const response = await fetch(`${API_BASE_URL}/api/articles`, {
                 method: 'POST',
@@ -83,7 +74,7 @@ class ArticleClient {
     }
 
     // 記事を更新
-    async update(id: number, article: ArticleRequest): Promise<Article> {
+    async update(id: number, article: UpdateArticleInput): Promise<Article> {
         try {
             const response = await fetch(`${API_BASE_URL}/api/articles/${id}`, {
                 method: 'PUT',
