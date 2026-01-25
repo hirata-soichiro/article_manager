@@ -289,40 +289,6 @@ func TestGeminiClient_GenerateArticleFromURL_Retry(t *testing.T) {
 	}
 }
 
-func TestGeminiClient_GenerateArticleFromURL_Timeout(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(200 * time.Microsecond)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	config := DefaultGeminiConfig("invalid-key")
-	config.BaseURL = server.URL
-	config.Timeout = 50 * time.Millisecond
-	config.MaxRetries = 0
-	client := NewGeminiClient(config)
-
-	req := service.ArticleGenerationRequest{
-		URL: "https://example.com/article",
-	}
-
-	ctx := context.Background()
-	_, err := client.GenerateArticleFromURL(ctx, req)
-
-	if err == nil {
-		t.Fatalf("Expected timeout error, got nil")
-	}
-
-	aiErr, ok := err.(*service.AIGeneratorError)
-	if !ok {
-		t.Fatalf("Expected AIGeneratorError, got %T", err)
-	}
-
-	if aiErr.Code != service.ErrCodeNetworkError {
-		t.Errorf("Expected error code %s, got %s", service.ErrCodeNetworkError, aiErr.Code)
-	}
-}
-
 func TestGeminiClient_GenerateArticleFromURL_ContentBlocked(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)

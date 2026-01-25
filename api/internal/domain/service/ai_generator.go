@@ -39,6 +39,10 @@ func (e *AIGeneratorError) Error() string {
 	return e.Message
 }
 
+func (e *AIGeneratorError) Unwrap() error {
+	return e.Err
+}
+
 // エラーコード定数
 const (
 	ErrCodeInvalidURL      = "INVALID_URL"
