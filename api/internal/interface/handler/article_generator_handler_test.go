@@ -34,7 +34,7 @@ func setupGeneratorHandler(aiService service.AIGeneratorService) *ArticleGenerat
 	articleRepo := repository.NewMemoryArticleRepository()
 	tagRepo := repository.NewMemoryTagRepository()
 	generatorUsecase := usecase.NewArticleGeneratorUsecase(aiService, articleRepo, tagRepo)
-	return NewArticleHandler(generatorUsecase)
+	return NewArticleGeneratorHandler(generatorUsecase)
 }
 
 // POST /api/articles/generateのテスト
@@ -359,6 +359,6 @@ func TestGenerateArticle(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "network")
+		assert.Contains(t, response["error"], "Network")
 	})
 }

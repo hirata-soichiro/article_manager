@@ -42,7 +42,7 @@ func TestCreateArticle(t *testing.T) {
 
 		handler.CreateArticle(rec, req)
 
-		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, http.StatusCreated, rec.Code)
 
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
