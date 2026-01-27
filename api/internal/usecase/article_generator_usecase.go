@@ -62,9 +62,11 @@ func (u *ArticleGeneratorUsecase) GenerateArticleFromURL(ctx context.Context, ur
 			if !strings.Contains(err.Error(), "tag not found") {
 				return nil, err
 			}
+			now := time.Now()
 			newTag := &entity.Tag{
 				Name:      tagName,
-				CreatedAt: time.Now(),
+				CreatedAt: now,
+				UpdatedAt: now,
 			}
 			createdTag, err := u.tagRepo.Create(ctx, newTag)
 			if err != nil {

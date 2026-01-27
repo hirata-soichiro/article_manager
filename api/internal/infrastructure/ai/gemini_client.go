@@ -26,9 +26,9 @@ type GeminiConfig struct {
 func DefaultGeminiConfig(apiKey string) *GeminiConfig {
 	return &GeminiConfig{
 		APIKey:        apiKey,
-		Model:         "gemini-2.5-pro",
-		BaseURL:       "https://api.example.com/v1/gemini/generate",
-		Timeout:       15 * time.Second,
+		Model:         "gemini-2.5-flash",
+		BaseURL:       "https://generativelanguage.googleapis.com/v1beta",
+		Timeout:       30 * time.Second,
 		MaxRetries:    3,
 		RetryWaitTime: 2 * time.Second,
 	}
@@ -134,13 +134,13 @@ func (c *GeminiClient) buildPrompt(url string) string {
 
 URL: %s
 
-要件:
+記事管理用の情報を生成する際は以下の要件を必ず守ってください。
 - summaryは記事の核心を捉え、200文字以内にまとめる
 - suggestedTagsは3-5個、検索しやすく具体的なものを選ぶ
 - 技術記事の場合は技術スタックをタグに含める
 - 日本語記事は日本語で、英語記事は翻訳し日本語で出力する
-
-以下のJSON形式のみで出力してください。説明文やマークダウンのコードブロックは不要です。
+- 説明文やマークダウンのコードブロックは不要
+- 以下のJSON形式のみで出力する
 {
   "title": "記事のタイトル",
   "summary": "記事の要約",
@@ -313,6 +313,21 @@ func (c *GeminiClient) isRetryable(err error) bool {
 		aiErr.Code == service.ErrCodeTimeout
 }
 
+// マークダウンのコードブロックからJSONを抽出
+func (c *GeminiClient) extractJSON(text string) string {
+	// ```json ... ``` または ``` ... ``` で囲まれている場合は中身を抽出
+	if strings.HasPrefix(text, "```") {
+		// 最初の改行以降を取得
+		lines := strings.Split(text, "\n")
+		if len(lines) > 1 {
+			// 最初の行（```json）と最後の行（```）を除去
+			content := strings.Join(lines[1:len(lines)-1], "\n")
+			return strings.TrimSpace(content)
+		}
+	}
+	return strings.TrimSpace(text)
+}
+
 // レスポンスをパース
 func (c *GeminiClient) parseResponse(resp *geminiResponse, sourceURL string) (*service.GeneratedArticle, error) {
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
@@ -320,6 +335,9 @@ func (c *GeminiClient) parseResponse(resp *geminiResponse, sourceURL string) (*s
 	}
 
 	text := resp.Candidates[0].Content.Parts[0].Text
+
+	// マークダウンのコードブロックを除去
+	text = c.extractJSON(text)
 
 	var data struct {
 		Title         string   `json:"title"`
