@@ -26,6 +26,10 @@ export default function ArticleForm() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [formError, setFormError] = useState<string | null>(null)
 
+    // AI自動生成の状態
+    const [isGenerating, setIsGenerating] = useState(false)
+    const [generateError, setGenerateError] = useState<string | null>(null)
+
     // バリデーションエラーの状態
     const [titleError, setTitleError] = useState<string | null>(null)
     const [urlError, setUrlError] = useState<string | null>(null)
@@ -110,6 +114,77 @@ export default function ArticleForm() {
                 return [...prev, tagName]
             }
         })
+    }
+
+    // AI自動生成
+    const handleAIGenerate = async () => {
+        if (!url.trim()) {
+            setGenerateError('URLを入力してください')
+            return
+        }
+
+        const isUrlValid = validateUrl(url)
+        if (!isUrlValid) {
+            setGenerateError('正しいURL形式で入力してください')
+            return
+        }
+
+        try {
+            setIsGenerating(true)
+            setGenerateError(null)
+
+            const response = await fetch('http://localhost:8080/api/articles/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: url.trim(),
+                    memo: memo.trim(),
+                }),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                const errorMessage = errorData.error || 'AI生成に失敗しました'
+
+                // エラーコード別のメッセージ
+                if (response.status === 429) {
+                    throw new Error('API制限に達しました。しばらく時間をおいてから再度お試しください')
+                } else if (response.status === 504) {
+                    throw new Error('タイムアウトしました。もう一度お試しください')
+                } else if (response.status === 401) {
+                    throw new Error('APIキーが無効です')
+                } else if (response.status === 403) {
+                    throw new Error('コンテンツがブロックされました')
+                } else {
+                    throw new Error(errorMessage)
+                }
+            }
+
+            const data = await response.json()
+
+            // フォームフィールドに自動入力
+            setTitle(data.title)
+            setSummary(data.summary)
+
+            // タグの設定
+            if (data.tags && Array.isArray(data.tags)) {
+                setSelectedTags(data.tags)
+            }
+
+            // バリデーションエラーをクリア
+            setTitleError(null)
+            setSummaryError(null)
+        } catch (err) {
+            if (err instanceof Error) {
+                setGenerateError(err.message)
+            } else {
+                setGenerateError('AI生成中にエラーが発生しました')
+            }
+        } finally {
+            setIsGenerating(false)
+        }
     }
 
     // フォーム送信
@@ -221,6 +296,24 @@ export default function ArticleForm() {
                         placeholder="https://example.com"
                     />
                     {urlError && <p className="mt-1 text-sm text-red-500">{urlError}</p>}
+                </div>
+
+                {/* AI自動生成ボタン */}
+                <div className="mt-3">
+                    <button
+                        type="button"
+                        onClick={handleAIGenerate}
+                        disabled={!url.trim() || isGenerating || isSubmitting}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+                    >
+                        {isGenerating ? '生成中...' : 'AI自動生成'}
+                    </button>
+                    {generateError && (
+                        <p className="mt-2 text-sm text-red-500">{generateError}</p>
+                    )}
+                    {isGenerating && (
+                        <p className="mt-2 text-sm text-blue-600">URLの内容を分析しています...</p>
+                    )}
                 </div>
 
                 {/* 要約 */}
