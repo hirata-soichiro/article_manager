@@ -6,6 +6,7 @@ import { articleClient } from '@/lib/api/articleClient'
 import { tagClient } from '@/lib/api/tagClient'
 import { Tag } from '@/types/tag'
 import { UpdateArticleInput } from '@/types/article'
+import DeleteConfirmDialog from './DeleteConfirmDialog'
 
 export default function ArticleEditForm() {
     const router = useRouter()
@@ -36,6 +37,17 @@ export default function ArticleEditForm() {
     const [titleError, setTitleError] = useState<string | null>(null)
     const [urlError, setUrlError] = useState<string | null>(null)
     const [summaryError, setSummaryError] = useState<string | null>(null)
+
+    // 削除ダイアログの状態
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
+
+    // 削除処理
+    const handleDeleteClick = () => {
+        setIsDeleteDialogOpen(true)
+        setDeleteError(null)
+    }
 
     // タグ一覧を取得
     useEffect(() => {
@@ -163,6 +175,23 @@ export default function ArticleEditForm() {
         router.push('/articles')
     }
 
+    const handleDeleteConfirm = async () => {
+        try {
+            setIsDeleting(true)
+            setDeleteError(null)
+            await articleClient.delete(articleId)
+            router.push('/articles')
+        } catch (err) {
+            setDeleteError('記事の削除に失敗しました')
+            setIsDeleting(false)
+        }
+    }
+
+    const handleDeleteCancel = () => {
+        setIsDeleteDialogOpen(false)
+        setDeleteError(null)
+    }
+
     if (tagsError) {
         return (
             <div className="max-w-4xl mx-auto">
@@ -202,6 +231,12 @@ export default function ArticleEditForm() {
                 {formError && (
                     <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-600">
                         {formError}
+                    </div>
+                )}
+
+                {deleteError && (
+                    <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-600">
+                        {deleteError}
                     </div>
                 )}
 
@@ -317,8 +352,26 @@ export default function ArticleEditForm() {
                     >
                         キャンセル
                     </button>
+                    <button
+                        type="button"
+                        onClick={handleDeleteClick}
+                        disabled={isSubmitting || isDeleting}
+                        className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed transition font-medium"
+                    >
+                        削除
+                    </button>
                 </div>
             </form>
+
+            {/* 削除確認ダイアログ */}
+            <DeleteConfirmDialog
+                isOpen={isDeleteDialogOpen}
+                title="記事を削除しますか？"
+                message={`「${title}」を削除します。この操作は取り消せません。`}
+                onConfirm={handleDeleteConfirm}
+                onCancel={handleDeleteCancel}
+                isDeleting={isDeleting}
+            />
         </div>
     )
 }
