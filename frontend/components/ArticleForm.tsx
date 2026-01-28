@@ -29,6 +29,7 @@ export default function ArticleForm() {
     // AI自動生成の状態
     const [isGenerating, setIsGenerating] = useState(false)
     const [generateError, setGenerateError] = useState<string | null>(null)
+    const [generatedTags, setGeneratedTags] = useState<string[]>([])
 
     // バリデーションエラーの状態
     const [titleError, setTitleError] = useState<string | null>(null)
@@ -141,6 +142,25 @@ export default function ArticleForm() {
 
             // タグの設定
             if (data.tags && Array.isArray(data.tags)) {
+                // 既存のタグ名リストを取得
+                const existingTagNames = tags.map(tag => tag.name)
+
+                // 新規タグを抽出（既存タグに含まれないもの）
+                const newTags = data.tags.filter(tagName => !existingTagNames.includes(tagName))
+
+                // 新規タグをtagsリストに追加
+                if (newTags.length > 0) {
+                    const newTagObjects: Tag[] = newTags.map(tagName => ({
+                        id: 0, // 新規タグはIDが0
+                        name: tagName,
+                        createdAt: '',
+                        updatedAt: ''
+                    }))
+                    setTags([...tags, ...newTagObjects])
+                    setGeneratedTags(newTags)
+                }
+
+                // 全てのタグを選択状態にする
                 setSelectedTags(data.tags)
             }
 
@@ -275,7 +295,16 @@ export default function ArticleForm() {
                         type="button"
                         onClick={handleAIGenerate}
                         disabled={!url.trim() || isGenerating || isSubmitting}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+                        className="px-6 py-2 rounded-lg transition font-medium"
+                        style={{
+                            display: 'inline-block',
+                            minHeight: '40px',
+                            minWidth: '120px',
+                            backgroundColor: (!url.trim() || isGenerating || isSubmitting) ? '#9ca3af' : '#16a34a',
+                            color: '#ffffff',
+                            cursor: (!url.trim() || isGenerating || isSubmitting) ? 'not-allowed' : 'pointer',
+                            border: 'none'
+                        }}
                     >
                         {isGenerating ? '生成中...' : 'AI自動生成'}
                     </button>
@@ -315,20 +344,69 @@ export default function ArticleForm() {
                         <div className="text-gray-500">タグを読み込んでいます...</div>
                     ) : (
                         <div className="flex flex-wrap gap-2">
-                            {tags.map((tag) => (
-                                <button
-                                    key={tag.id}
-                                    type="button"
-                                    onClick={() => toggleTag(tag.name)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                                        selectedTags.includes(tag.name)
-                                            ? 'bg-blue-600 text-white shadow-md'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    {tag.name}
-                                </button>
-                            ))}
+                            {tags.map((tag) => {
+                                const isNewTag = generatedTags.includes(tag.name)
+                                const isSelected = selectedTags.includes(tag.name)
+
+                                let buttonStyle: React.CSSProperties = {}
+                                if (isNewTag) {
+                                    // 新規タグの場合
+                                    if (isSelected) {
+                                        // 選択済み：濃い緑
+                                        buttonStyle = {
+                                            backgroundColor: '#16a34a',
+                                            color: '#ffffff',
+                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                        }
+                                    } else {
+                                        // 未選択：薄い緑
+                                        buttonStyle = {
+                                            backgroundColor: '#bbf7d0',
+                                            color: '#166534',
+                                            border: '2px solid #4ade80'
+                                        }
+                                    }
+                                } else {
+                                    // 既存タグの場合
+                                    if (isSelected) {
+                                        // 選択済み：青
+                                        buttonStyle = {
+                                            backgroundColor: '#2563eb',
+                                            color: '#ffffff',
+                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                        }
+                                    } else {
+                                        // 未選択：グレー
+                                        buttonStyle = {
+                                            backgroundColor: '#f3f4f6',
+                                            color: '#374151'
+                                        }
+                                    }
+                                }
+
+                                return (
+                                    <button
+                                        key={tag.id || tag.name}
+                                        type="button"
+                                        onClick={() => toggleTag(tag.name)}
+                                        className="px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1"
+                                        style={buttonStyle}
+                                    >
+                                        {tag.name}
+                                        {isNewTag && (
+                                            <span
+                                                className="text-xs px-1.5 py-0.5 rounded"
+                                                style={{
+                                                    backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.3)' : '#16a34a',
+                                                    color: '#ffffff'
+                                                }}
+                                            >
+                                                新規
+                                            </span>
+                                        )}
+                                    </button>
+                                )
+                            })}
                         </div>
                     )}
                 </div>

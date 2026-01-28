@@ -30,7 +30,7 @@ func NewArticleGeneratorUsecase(
 	}
 }
 
-// URLから記事を自動生成して保存
+// URLから記事情報を自動生成（DB保存なし）
 func (u *ArticleGeneratorUsecase) GenerateArticleFromURL(ctx context.Context, url string, memo string) (*entity.Article, error) {
 	if url == "" {
 		return nil, errors.New("url is required")
@@ -51,34 +51,18 @@ func (u *ArticleGeneratorUsecase) GenerateArticleFromURL(ctx context.Context, ur
 		return nil, errors.New("summary is required")
 	}
 
+	// タグ名のバリデーションのみ実行（DB作成はしない）
 	tags := []string{}
 	for _, tagName := range generated.SuggestedTags {
 		if tagName == "" {
 			return nil, errors.New("tag cannot be empty")
 		}
-
-		exsitingTag, err := u.tagRepo.FindByName(ctx, tagName)
-		if err != nil {
-			if !strings.Contains(err.Error(), "tag not found") {
-				return nil, err
-			}
-			now := time.Now()
-			newTag := &entity.Tag{
-				Name:      tagName,
-				CreatedAt: now,
-				UpdatedAt: now,
-			}
-			createdTag, err := u.tagRepo.Create(ctx, newTag)
-			if err != nil {
-				return nil, err
-			}
-			tags = append(tags, createdTag.Name)
-		} else {
-			tags = append(tags, exsitingTag.Name)
-		}
+		tags = append(tags, tagName)
 	}
 
+	// 生成された情報のみを返却（DBには保存しない）
 	article := &entity.Article{
+		ID:        0, // IDは0（まだ保存されていない）
 		Title:     generated.Title,
 		URL:       url,
 		Summary:   generated.Summary,
@@ -88,10 +72,5 @@ func (u *ArticleGeneratorUsecase) GenerateArticleFromURL(ctx context.Context, ur
 		UpdatedAt: time.Now(),
 	}
 
-	savedArticle, err := u.articleRepo.Create(ctx, article)
-	if err != nil {
-		return nil, err
-	}
-
-	return savedArticle, nil
+	return article, nil
 }

@@ -296,15 +296,26 @@ func (r *mysqlArticleRepository) Delete(ctx context.Context, id int64) error {
 
 func (r *mysqlArticleRepository) insertArticleTags(ctx context.Context, tx *sqlx.Tx, articleID int64, tagNames []string) error {
 	for _, tagName := range tagNames {
-		// タグ名かからタグIDを取得
+		// タグ名からタグIDを取得
 		var tagID int64
 		query := `SELECT id FROM tags WHERE name = ?`
 		err := tx.GetContext(ctx, &tagID, query, tagName)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("tag not found: name=%s", tagName)
+				// タグが存在しない場合は新規作成
+				insertTagQuery := `INSERT INTO tags (name, created_at, updated_at) VALUES (?, NOW(), NOW())`
+				result, err := tx.ExecContext(ctx, insertTagQuery, tagName)
+				if err != nil {
+					return fmt.Errorf("failed to create tag: %w", err)
+				}
+				newTagID, err := result.LastInsertId()
+				if err != nil {
+					return fmt.Errorf("failed to get new tag id: %w", err)
+				}
+				tagID = newTagID
+			} else {
+				return fmt.Errorf("failed to find tag: %w", err)
 			}
-			return fmt.Errorf("failed to find tag: %w", err)
 		}
 
 		// article_tagsテーブルに関連付けを保存

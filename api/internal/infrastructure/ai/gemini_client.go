@@ -26,7 +26,7 @@ type GeminiConfig struct {
 func DefaultGeminiConfig(apiKey string) *GeminiConfig {
 	return &GeminiConfig{
 		APIKey:        apiKey,
-		Model:         "gemini-2.5-flash",
+		Model:         "gemini-2.5-flash-lite",
 		BaseURL:       "https://generativelanguage.googleapis.com/v1beta",
 		Timeout:       30 * time.Second,
 		MaxRetries:    3,
@@ -319,13 +319,31 @@ func (c *GeminiClient) extractJSON(text string) string {
 	if strings.HasPrefix(text, "```") {
 		// 最初の改行以降を取得
 		lines := strings.Split(text, "\n")
-		if len(lines) > 1 {
-			// 最初の行（```json）と最後の行（```）を除去
-			content := strings.Join(lines[1:len(lines)-1], "\n")
-			return strings.TrimSpace(content)
+		if len(lines) > 2 {
+			// 最初の行（```json）を除去
+			content := strings.Join(lines[1:], "\n")
+			// 最後の```を見つけて除去
+			if idx := strings.LastIndex(content, "```"); idx != -1 {
+				content = content[:idx]
+			}
+			text = strings.TrimSpace(content)
 		}
 	}
-	return strings.TrimSpace(text)
+
+	// JSON オブジェクトの開始位置を探す
+	startIdx := strings.Index(text, "{")
+	if startIdx == -1 {
+		return strings.TrimSpace(text)
+	}
+
+	// JSON オブジェクトの終了位置を探す
+	endIdx := strings.LastIndex(text, "}")
+	if endIdx == -1 || endIdx < startIdx {
+		return strings.TrimSpace(text)
+	}
+
+	// JSON 部分のみを抽出
+	return strings.TrimSpace(text[startIdx : endIdx+1])
 }
 
 // レスポンスをパース
