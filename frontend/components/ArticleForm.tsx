@@ -133,36 +133,7 @@ export default function ArticleForm() {
             setIsGenerating(true)
             setGenerateError(null)
 
-            const response = await fetch('http://localhost:8080/api/articles/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    url: url.trim(),
-                    memo: memo.trim(),
-                }),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}))
-                const errorMessage = errorData.error || 'AI生成に失敗しました'
-
-                // エラーコード別のメッセージ
-                if (response.status === 429) {
-                    throw new Error('API制限に達しました。しばらく時間をおいてから再度お試しください')
-                } else if (response.status === 504) {
-                    throw new Error('タイムアウトしました。もう一度お試しください')
-                } else if (response.status === 401) {
-                    throw new Error('APIキーが無効です')
-                } else if (response.status === 403) {
-                    throw new Error('コンテンツがブロックされました')
-                } else {
-                    throw new Error(errorMessage)
-                }
-            }
-
-            const data = await response.json()
+            const data = await articleClient.generate(url.trim(), memo.trim() || undefined)
 
             // フォームフィールドに自動入力
             setTitle(data.title)
