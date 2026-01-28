@@ -112,6 +112,34 @@ class ArticleClient {
         }
     }
 
+    // URLから記事を自動生成
+    async generate(url: string, memo?: string): Promise<Article> {
+        try {
+            const requestBody: { url: string; memo?: string } = { url }
+            if (memo !== undefined) {
+                requestBody.memo = memo
+            }
+
+            const response = await fetch(`${API_BASE_URL}/api/articles/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to generate article')
+            }
+
+            const data: ApiArticle = await response.json()
+            return this.convertToCamelCase(data)
+        } catch (error) {
+            throw error
+        }
+    }
+
     // APIレスポンスをフロントエンド用に変換
     private convertToCamelCase(apiArticle: ApiArticle): Article {
         return {

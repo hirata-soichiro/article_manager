@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"article-manager/internal/infrastructure/ai"
 	"article-manager/internal/infrastructure/database"
 	"article-manager/internal/infrastructure/repository"
 	"article-manager/internal/interface/handler"
@@ -55,6 +56,12 @@ func main() {
 	tagUsecase := usecase.NewTagUsecase(tagRepo)
 	tagHandler := handler.NewTagHandler(tagUsecase)
 
+	// 依存性注入(ai generator)
+	geminiConfig := ai.DefaultGeminiConfig(config.GeminiAPIKey)
+	geminiClient := ai.NewGeminiClient(geminiConfig)
+	articleGeneratorUsecase := usecase.NewArticleGeneratorUsecase(geminiClient, articleRepo, tagRepo)
+	articleGeneratorHandler := handler.NewArticleGeneratorHandler(articleGeneratorUsecase)
+
 	// HTTPルーターの設定
 	mux := http.NewServeMux()
 
@@ -70,6 +77,9 @@ func main() {
 
 	// 記事作成
 	mux.HandleFunc("POST /api/articles", articleHandler.CreateArticle)
+
+	// 記事自動作成
+	mux.HandleFunc("POST /api/articles/generate", articleGeneratorHandler.GenerateArticle)
 
 	// 記事詳細取得
 	mux.HandleFunc("GET /api/articles/{id}", extractArticleID(articleHandler.GetArticleByID))
@@ -167,22 +177,24 @@ func main() {
 }
 
 type Config struct {
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	Port       string
+	DBHost       string
+	DBPort       string
+	DBUser       string
+	DBPassword   string
+	DBName       string
+	Port         string
+	GeminiAPIKey string
 }
 
 func loadConfig() Config {
 	config := Config{
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "3306"),
-		DBUser:     getEnv("DB_USER", ""),
-		DBPassword: getEnv("DB_PASSWORD", ""),
-		DBName:     getEnv("DB_NAME", ""),
-		Port:       getEnv("PORT", "8080"),
+		DBHost:       getEnv("DB_HOST", "localhost"),
+		DBPort:       getEnv("DB_PORT", "3306"),
+		DBUser:       getEnv("DB_USER", ""),
+		DBPassword:   getEnv("DB_PASSWORD", ""),
+		DBName:       getEnv("DB_NAME", ""),
+		Port:         getEnv("PORT", "8080"),
+		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
 	}
 
 	// ユーザー名が設定されていない場合はエラー
@@ -198,6 +210,10 @@ func loadConfig() Config {
 	// データベース名が設定されていない場合はエラー
 	if config.DBName == "" {
 		log.Fatal("DBName environment variable is required")
+	}
+
+	if config.GeminiAPIKey == "" {
+		log.Fatal("GEMINI_API_KEY environment variable is required")
 	}
 
 	return config
