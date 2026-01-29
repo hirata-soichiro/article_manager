@@ -1,5 +1,8 @@
+'use client'
+
 import { Article } from '@/types/article'
-import TagList from './TagList' 
+import TagList from './TagList'
+import Link from 'next/link'
 
 interface ArticleCardProps {
     article: Article
@@ -7,18 +10,20 @@ interface ArticleCardProps {
 
 export default function ArticleCard({ article }: ArticleCardProps) {
     return (
-        <div className="card hover:shadow-lg cursor-pointer">
-            {/* card: globals.cssで定義した共通スタイル */}
-            {/* hover:shadow-lg: ホバー時に大きな影 */}
-            {/* cursor-pointer: マウスカーソルをポインターに */}
+        <div className="card hover:shadow-lg transition-shadow duration-300">
+            <div className="flex justify-between items-start mb-2">
+                <h3 className="text-xl font-bold text-gray-800 flex-1">
+                    {article.title}
+                </h3>
 
-            <h3 className="text-xl font-bold mb-2 text-gray-800">
-                {/* text-xl: テキストサイズ大 */}
-                {/* font-bold: 太字 */}
-                {/* mb-2: 下マージン2単位 */}
-                {/* text-gray-800: 濃いグレーテキスト */}
-                {article.title}
-            </h3>
+                {/* 編集ボタン */}
+                <Link 
+                    href={`/articles/${article.id}/edit`}
+                    className="ml-2 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200"
+                >
+                    編集
+                </Link>
+            </div>
 
             <a
                 href={article.url}
@@ -26,15 +31,10 @@ export default function ArticleCard({ article }: ArticleCardProps) {
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:underline text-sm mb-2 block break-all"
             >
-                {/* target="_blank": 新しいタブで開く */}
-                {/* rel="noopener noreferrer": セキュリティ対策 */}
-                {/* hover:underline: ホバー時に下線 */}
-                {/* break-all: 長いURLを折り返す */}
                 {article.url}
             </a>
 
             <p className="text-gray-600 mb-3 line-clamp-2">
-                {/* line-clamp-2: 2行まで表示、それ以上は... */}
                 {article.summary}
             </p>
 
@@ -47,6 +47,11 @@ export default function ArticleCard({ article }: ArticleCardProps) {
                     メモ： {article.memo}
                 </p>
             )}
+
+            <div className="text-xs text-gray-400 mt-2">
+                <p>作成: {new Date(article.createdAt).toLocaleDateString('ja-JP')}</p>
+                <p>更新: {new Date(article.updatedAt).toLocaleDateString('ja-JP')}</p>
+            </div>
         </div>
     )
 }
