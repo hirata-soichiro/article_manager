@@ -54,7 +54,22 @@ export default function DeleteConfirmDialog({
                         type="button"
                         onClick={onCancel}
                         disabled={isDeleting}
-                        className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed transition font-medium"
+                        className="flex-1 px-4 py-2 rounded-lg transition font-medium"
+                        style={{
+                            backgroundColor: isDeleting ? '#f3f4f6' : '#e5e7eb',
+                            color: '#374151',
+                            cursor: isDeleting ? 'not-allowed' : 'pointer',
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!isDeleting) {
+                                e.currentTarget.style.backgroundColor = '#d1d5db'
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (!isDeleting) {
+                                e.currentTarget.style.backgroundColor = '#e5e7eb'
+                            }
+                        }}
                     >
                         キャンセル
                     </button>
@@ -62,7 +77,22 @@ export default function DeleteConfirmDialog({
                         type="button"
                         onClick={onConfirm}
                         disabled={isDeleting}
-                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed transition font-medium"
+                        className="flex-1 px-4 py-2 rounded-lg transition font-medium"
+                        style={{
+                            backgroundColor: isDeleting ? '#fca5a5' : '#dc2626',
+                            color: '#ffffff',
+                            cursor: isDeleting ? 'not-allowed' : 'pointer',
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!isDeleting) {
+                                e.currentTarget.style.backgroundColor = '#b91c1c'
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (!isDeleting) {
+                                e.currentTarget.style.backgroundColor = '#dc2626'
+                            }
+                        }}
                     >
                         {isDeleting ? '削除中...' : '削除'}
                     </button>
