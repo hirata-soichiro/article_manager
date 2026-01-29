@@ -748,3 +748,391 @@ func TestMySQLArticleRepository_Delete(t *testing.T) {
 		assert.Contains(t, err.Error(), "not found")
 	})
 }
+
+func TestMySQLArticleRepository_Search(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	t.Run("正常系：単一キーワードでタイトルを検索できる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本を学ぶ", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本を学ぶ", []string{"Python"}, "")
+		article3 := createTestArticle(t, "Go言語完全ガイド", "https://example.com/go-guide", "Go言語の完全版", []string{"Go"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+		insertArticleDirectly(t, db, article3)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "Go言語")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 2)
+		// 新しい順（created_at DESC）で並ぶことを確認
+		assert.Equal(t, "Go言語完全ガイド", results[0].Title)
+		assert.Equal(t, "Go言語入門", results[1].Title)
+	})
+
+	t.Run("正常系：単一キーワードで要約（Summary）を検索できる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "プログラミング入門", "https://example.com/prog1", "Go言語とPythonの比較", []string{"Go", "Python"}, "")
+		article2 := createTestArticle(t, "Web開発入門", "https://example.com/web", "JavaScriptでWeb開発", []string{"JavaScript"}, "")
+		article3 := createTestArticle(t, "データベース入門", "https://example.com/db", "MySQLとPostgreSQLの比較", []string{"MySQL"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+		insertArticleDirectly(t, db, article3)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "比較")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 2)
+		assert.Equal(t, "データベース入門", results[0].Title)
+		assert.Equal(t, "プログラミング入門", results[1].Title)
+	})
+
+	t.Run("正常系：複数キーワード（2単語）でAND検索できる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本を学ぶ", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Go言語完全ガイド", "https://example.com/go-guide", "Go言語の完全版", []string{"Go"}, "")
+		article3 := createTestArticle(t, "Go言語による設計パターン", "https://example.com/go-pattern", "設計パターンをGoで実装", []string{"Go"}, "")
+		article4 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本を学ぶ", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+		insertArticleDirectly(t, db, article3)
+		insertArticleDirectly(t, db, article4)
+
+		ctx := context.Background()
+		// "Go言語"と"完全"の両方を含む記事を検索
+		results, err := repo.Search(ctx, "Go言語 完全")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "Go言語完全ガイド", results[0].Title)
+	})
+
+	t.Run("正常系：複数キーワード（3単語）でAND検索できる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本を学ぶ", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Go言語完全ガイド", "https://example.com/go-guide", "Go言語の基本から応用まで完全網羅", []string{"Go"}, "")
+		article3 := createTestArticle(t, "Go言語による設計パターン", "https://example.com/go-pattern", "設計パターンをGoで実装", []string{"Go"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+		insertArticleDirectly(t, db, article3)
+
+		ctx := context.Background()
+		// "Go言語"、"基本"、"完全"の全てを含む記事を検索
+		results, err := repo.Search(ctx, "Go言語 基本 完全")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "Go言語完全ガイド", results[0].Title)
+	})
+
+	t.Run("正常系：タイトルと要約の両方を検索対象とする", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		// タイトルにのみ"Go言語"を含む記事
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go1", "プログラミングの基礎", []string{"Go"}, "")
+		// 要約にのみ"Go言語"を含む記事
+		article2 := createTestArticle(t, "プログラミング入門", "https://example.com/go2", "Go言語を使った開発", []string{"Go"}, "")
+		// タイトルと要約の両方に"Go言語"を含む記事
+		article3 := createTestArticle(t, "Go言語完全ガイド", "https://example.com/go3", "Go言語の完全版", []string{"Go"}, "")
+		// どちらにも含まない記事
+		article4 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+		insertArticleDirectly(t, db, article3)
+		insertArticleDirectly(t, db, article4)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "Go言語")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 3)
+	})
+
+	t.Run("正常系：複数キーワードがタイトルと要約に分散している場合もマッチする", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		// "Go言語"はタイトル、"パフォーマンス"は要約に存在
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go1", "パフォーマンスの最適化", []string{"Go"}, "")
+		// 両方ともタイトルに存在
+		article2 := createTestArticle(t, "Go言語パフォーマンス最適化", "https://example.com/go2", "実践的な最適化手法", []string{"Go"}, "")
+		// "Go言語"は要約、"パフォーマンス"はタイトルに存在
+		article3 := createTestArticle(t, "パフォーマンスチューニング", "https://example.com/go3", "Go言語での最適化", []string{"Go"}, "")
+		// 片方のキーワードのみ
+		article4 := createTestArticle(t, "Go言語完全ガイド", "https://example.com/go4", "基本から応用まで", []string{"Go"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+		insertArticleDirectly(t, db, article3)
+		insertArticleDirectly(t, db, article4)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "Go言語 パフォーマンス")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 3)
+		// article4は"Go言語"のみでマッチしない
+	})
+
+	t.Run("正常系：検索キーワードが空文字列の場合は全件取得と同じ", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		time.Sleep(10 * time.Millisecond)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 2)
+	})
+
+	t.Run("正常系：検索キーワードがスペースのみの場合は全件取得と同じ", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		time.Sleep(10 * time.Millisecond)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "   ")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 2)
+	})
+
+	t.Run("正常系：マッチする記事が0件の場合は空配列を返す", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "存在しないキーワード")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Empty(t, results)
+	})
+
+	t.Run("正常系：記事が0件の状態で検索しても空配列を返す", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "Go言語")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Empty(t, results)
+	})
+
+	t.Run("正常系：大文字小文字を区別せず検索する", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go Language Tutorial", "https://example.com/go", "Learn GO programming", []string{"Go"}, "")
+		article2 := createTestArticle(t, "python tutorial", "https://example.com/python", "Learn python", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "go")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "Go Language Tutorial", results[0].Title)
+	})
+
+	t.Run("正常系：前後の空白を無視して検索する", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "  Go言語  ")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "Go言語入門", results[0].Title)
+	})
+
+	t.Run("正常系：複数の連続するスペースも1つの区切りとして扱う", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語完全ガイド", "https://example.com/go", "Go言語の基本から応用まで", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Go言語入門", "https://example.com/go2", "初心者向けの内容", []string{"Go"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		// 複数スペースで区切っても正しく検索できる
+		results, err := repo.Search(ctx, "Go言語    完全")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "Go言語完全ガイド", results[0].Title)
+	})
+
+	t.Run("正常系：部分一致で検索できる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Python入門", "https://example.com/python", "Pythonの基本", []string{"Python"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		// "Go"で検索して"Go言語"にマッチする
+		results, err := repo.Search(ctx, "Go")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "Go言語入門", results[0].Title)
+	})
+
+	t.Run("正常系：結果はcreated_atの降順でソートされる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go1", "Go言語の基本", []string{"Go"}, "")
+		article2 := createTestArticle(t, "Go言語応用", "https://example.com/go2", "Go言語の応用", []string{"Go"}, "")
+		article3 := createTestArticle(t, "Go言語完全ガイド", "https://example.com/go3", "Go言語の完全版", []string{"Go"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		time.Sleep(10 * time.Millisecond)
+		insertArticleDirectly(t, db, article2)
+		time.Sleep(10 * time.Millisecond)
+		insertArticleDirectly(t, db, article3)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "Go言語")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 3)
+		// 新しい順に並ぶ
+		assert.Equal(t, "Go言語完全ガイド", results[0].Title)
+		assert.Equal(t, "Go言語応用", results[1].Title)
+		assert.Equal(t, "Go言語入門", results[2].Title)
+	})
+
+	t.Run("正常系：検索結果にタグも含まれる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go", "プログラミング", "入門"}, "")
+		insertArticleDirectly(t, db, article1)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "Go言語")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.ElementsMatch(t, []string{"Go", "プログラミング", "入門"}, results[0].Tags)
+	})
+
+	t.Run("正常系：検索結果にメモも含まれる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "後で読む")
+		insertArticleDirectly(t, db, article1)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "Go言語")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "後で読む", results[0].Memo)
+	})
+
+	t.Run("異常系：キャンセルされたコンテキストではエラー", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
+		insertArticleDirectly(t, db, article)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		results, err := repo.Search(ctx, "Go言語")
+
+		require.Error(t, err)
+		assert.Nil(t, results)
+	})
+
+	t.Run("正常系：特殊文字を含むキーワードでも検索できる", func(t *testing.T) {
+		cleanupTable(t, db)
+		repo := NewMySQLArticleRepository(db)
+
+		article1 := createTestArticle(t, "C++プログラミング", "https://example.com/cpp", "C++の基本", []string{"C++"}, "")
+		article2 := createTestArticle(t, "C#プログラミング", "https://example.com/csharp", "C#の基本", []string{"C#"}, "")
+
+		insertArticleDirectly(t, db, article1)
+		insertArticleDirectly(t, db, article2)
+
+		ctx := context.Background()
+		results, err := repo.Search(ctx, "C++")
+
+		require.NoError(t, err)
+		require.NotNil(t, results)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "C++プログラミング", results[0].Title)
+	})
+}
