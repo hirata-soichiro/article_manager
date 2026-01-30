@@ -412,3 +412,203 @@ func TestDeleteArticle(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 }
+
+// GET /api/articles/searchのテスト
+func TestSearchArticles(t *testing.T) {
+	t.Run("正常系：キーワードで検索できる", func(t *testing.T) {
+		handler := setupHandler()
+
+		ctx := context.Background()
+		handler.usecase.CreateArticle(ctx, "Go言語入門", "https://example.com/1", "Go言語の基本を解説", []string{"Go", "プログラミング"}, "初心者向け")
+		handler.usecase.CreateArticle(ctx, "Next.js入門", "https://example.com/2", "Next.jsの使い方", []string{"Next.js", "React"}, "フロントエンド")
+		handler.usecase.CreateArticle(ctx, "GoとNext.jsで作るアプリ", "https://example.com/3", "GoとNext.jsを組み合わせた開発", []string{"Go", "Next.js"}, "フルスタック")
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=Go", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response []map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 2, len(response))
+		titles := []string{response[0]["title"].(string), response[1]["title"].(string)}
+		assert.Contains(t, titles, "Go言語入門")
+		assert.Contains(t, titles, "GoとNext.jsで作るアプリ")
+	})
+
+	t.Run("正常系：AND検索（複数キーワードをスペース区切り）", func(t *testing.T) {
+		handler := setupHandler()
+
+		ctx := context.Background()
+		handler.usecase.CreateArticle(ctx, "Go言語入門", "https://example.com/1", "Go言語の基本を解説", []string{"Go"}, "初心者向け")
+		handler.usecase.CreateArticle(ctx, "Next.js入門", "https://example.com/2", "Next.jsの使い方", []string{"Next.js"}, "フロントエンド")
+		handler.usecase.CreateArticle(ctx, "GoとNext.jsで作るアプリ", "https://example.com/3", "GoとNext.jsを組み合わせた開発", []string{"Go", "Next.js"}, "フルスタック開発")
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=Go+Next.js", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response []map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 1, len(response))
+		assert.Equal(t, "GoとNext.jsで作るアプリ", response[0]["title"])
+	})
+
+	t.Run("正常系：タイトルと要約から検索", func(t *testing.T) {
+		handler := setupHandler()
+
+		ctx := context.Background()
+		handler.usecase.CreateArticle(ctx, "データベース設計", "https://example.com/1", "MySQL設計の基礎", []string{"Database"}, "")
+		handler.usecase.CreateArticle(ctx, "API開発", "https://example.com/2", "RESTful APIの実装", []string{"Go", "API"}, "")
+
+		// タイトルから検索
+		req1 := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=データベース", nil)
+		rec1 := httptest.NewRecorder()
+		handler.SearchArticles(rec1, req1)
+		var response1 []map[string]interface{}
+		json.Unmarshal(rec1.Body.Bytes(), &response1)
+		assert.Equal(t, 1, len(response1))
+		assert.Equal(t, "データベース設計", response1[0]["title"])
+
+		// 要約から検索
+		req2 := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=RESTful", nil)
+		rec2 := httptest.NewRecorder()
+		handler.SearchArticles(rec2, req2)
+		var response2 []map[string]interface{}
+		json.Unmarshal(rec2.Body.Bytes(), &response2)
+		assert.Equal(t, 1, len(response2))
+		assert.Equal(t, "API開発", response2[0]["title"])
+	})
+
+	t.Run("正常系：検索結果が0件の場合", func(t *testing.T) {
+		handler := setupHandler()
+
+		ctx := context.Background()
+		handler.usecase.CreateArticle(ctx, "Go言語入門", "https://example.com/1", "Go言語の基本", []string{"Go"}, "")
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=Python", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response []map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(response))
+	})
+
+	t.Run("正常系：記事が存在しない場合", func(t *testing.T) {
+		handler := setupHandler()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=Go", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response []map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(response))
+	})
+
+	t.Run("正常系：キーワードに余分なスペースがある場合", func(t *testing.T) {
+		handler := setupHandler()
+
+		ctx := context.Background()
+		handler.usecase.CreateArticle(ctx, "Go言語入門", "https://example.com/1", "Go言語の基本", []string{"Go"}, "")
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=+Go+", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var response []map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Equal(t, 1, len(response))
+	})
+
+	t.Run("正常系：大文字小文字を区別しない検索", func(t *testing.T) {
+		handler := setupHandler()
+
+		ctx := context.Background()
+		handler.usecase.CreateArticle(ctx, "Go言語入門", "https://example.com/1", "go言語の基本", []string{"golang"}, "")
+
+		// 小文字で検索
+		req1 := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=go", nil)
+		rec1 := httptest.NewRecorder()
+		handler.SearchArticles(rec1, req1)
+		var response1 []map[string]interface{}
+		json.Unmarshal(rec1.Body.Bytes(), &response1)
+		assert.Equal(t, 1, len(response1))
+
+		// 大文字で検索
+		req2 := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=GO", nil)
+		rec2 := httptest.NewRecorder()
+		handler.SearchArticles(rec2, req2)
+		var response2 []map[string]interface{}
+		json.Unmarshal(rec2.Body.Bytes(), &response2)
+		assert.Equal(t, 1, len(response2))
+	})
+
+	t.Run("異常系：キーワードパラメータが空", func(t *testing.T) {
+		handler := setupHandler()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response["error"], "keyword")
+	})
+
+	t.Run("異常系：キーワードパラメータが存在しない", func(t *testing.T) {
+		handler := setupHandler()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response["error"], "keyword")
+	})
+
+	t.Run("異常系：キーワードがスペースのみ", func(t *testing.T) {
+		handler := setupHandler()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/articles/search?keyword=+++", nil)
+		rec := httptest.NewRecorder()
+
+		handler.SearchArticles(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+		assert.Contains(t, response["error"], "keyword")
+	})
+}
