@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"article-manager/internal/domain/entity"
 	"article-manager/internal/domain/repository"
@@ -86,4 +87,19 @@ func (u *ArticleUsecase) DeleteArticle(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+// キーワードで記事を検索
+func (u *ArticleUsecase) SearchArticles(ctx context.Context, keyword string) ([]*entity.Article, error) {
+	trimmedKeyword := strings.TrimSpace(keyword)
+	if trimmedKeyword == "" {
+		return nil, errors.New("keyword cannot be empty")
+	}
+
+	articles, err := u.repo.Search(ctx, trimmedKeyword)
+	if err != nil {
+		return nil, err
+	}
+
+	return articles, nil
 }
