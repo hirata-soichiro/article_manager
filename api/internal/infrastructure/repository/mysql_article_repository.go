@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"article-manager/internal/domain/entity"
 	"article-manager/internal/domain/repository"
@@ -348,6 +349,87 @@ func (r *mysqlArticleRepository) findTagsByArticleID(ctx context.Context, articl
 	}
 
 	return tags, nil
+}
+
+// 曖昧検索機能
+func (r *mysqlArticleRepository) Search(ctx context.Context, keyword string) ([]*entity.Article, error) {
+	trimmedKeyword := strings.TrimSpace(keyword)
+	if trimmedKeyword == "" {
+		return r.FindAll(ctx)
+	}
+
+	keywords := strings.Fields(trimmedKeyword)
+
+	var conditions []string
+	var args []interface{}
+
+	for _, kw := range keywords {
+		conditions = append(conditions, "(a.title LIKE ? OR a.summary LIKE ?)")
+		likePattern := "%" + kw + "%"
+		args = append(args, likePattern, likePattern)
+	}
+
+	whereClause := strings.Join(conditions, " AND ")
+
+	query := fmt.Sprintf(`
+		SELECT
+			a.id,
+			a.title,
+			a.url,
+			a.summary,
+			a.memo,
+			a.created_at,
+			a.updated_at,
+			t.name AS tag_name
+		FROM articles a
+		LEFT JOIN article_tags at ON a.id = at.article_id
+		LEFT JOIN tags t ON at.tag_id = t.id
+		WHERE %s
+		ORDER BY a.created_at DESC, t.name ASC
+	`, whereClause)
+
+	var rows []articleWithTagRow
+	err := r.db.SelectContext(ctx, &rows, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search articles: %w", err)
+	}
+
+	articleMap := make(map[int64]*entity.Article)
+	var articleOrder []int64
+
+	for _, row := range rows {
+		article, exists := articleMap[row.ID]
+		if !exists {
+			memo := ""
+			if row.Memo.Valid {
+				memo = row.Memo.String
+			}
+
+			article = &entity.Article{
+				ID:        row.ID,
+				Title:     row.Title,
+				URL:       row.URL,
+				Summary:   row.Summary,
+				Tags:      []string{},
+				Memo:      memo,
+				CreatedAt: row.CreatedAt.Time,
+				UpdatedAt: row.UpdatedAt.Time,
+			}
+			articleMap[row.ID] = article
+			articleOrder = append(articleOrder, row.ID)
+		}
+
+		if row.TagName.Valid && row.TagName.String != "" {
+			article.Tags = append(article.Tags, row.TagName.String)
+		}
+	}
+
+	articles := make([]*entity.Article, 0, len(articleOrder))
+	for _, id := range articleOrder {
+		articles = append(articles, articleMap[id])
+	}
+
+	return articles, nil
 }
 
 // artibleRowをentity.Articleに変換

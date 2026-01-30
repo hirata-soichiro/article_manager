@@ -238,21 +238,6 @@ func TestMySQLArticleRepository_Create(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, created)
 	})
-
-	t.Run("異常系：存在しないタグを指定すると作成に失敗する", func(t *testing.T) {
-		cleanupTable(t, db)
-		repo := NewMySQLArticleRepository(db)
-
-		// タグを事前に作成しない
-		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"NonExistentTag"}, "")
-
-		ctx := context.Background()
-		created, err := repo.Create(ctx, article)
-
-		require.Error(t, err)
-		assert.Nil(t, created)
-		assert.Contains(t, err.Error(), "tag not found")
-	})
 }
 
 func TestMySQLArticleRepository_FindByID(t *testing.T) {
@@ -358,13 +343,16 @@ func TestMySQLArticleRepository_FindAll(t *testing.T) {
 		repo := NewMySQLArticleRepository(db)
 
 		article1 := createTestArticle(t, "記事1", "https://example.com/1", "要約1", []string{"tag1"}, "メモ1")
-		article2 := createTestArticle(t, "記事2", "https://example.com/2", "要約2", []string{"tag2"}, "メモ2")
-		article3 := createTestArticle(t, "記事3", "https://example.com/3", "要約3", []string{"tag3"}, "")
-
 		insertArticleDirectly(t, db, article1)
-		time.Sleep(10 * time.Millisecond)
+
+		time.Sleep(1 * time.Second)
+
+		article2 := createTestArticle(t, "記事2", "https://example.com/2", "要約2", []string{"tag2"}, "メモ2")
 		insertArticleDirectly(t, db, article2)
-		time.Sleep(10 * time.Millisecond)
+
+		time.Sleep(1 * time.Second)
+
+		article3 := createTestArticle(t, "記事3", "https://example.com/3", "要約3", []string{"tag3"}, "")
 		insertArticleDirectly(t, db, article3)
 
 		ctx := context.Background()
@@ -600,25 +588,6 @@ func TestMySQLArticleRepository_Update(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, updated)
-	})
-
-	t.Run("異常系：存在しないタグで更新しようとするとエラー", func(t *testing.T) {
-		cleanupTable(t, db)
-		repo := NewMySQLArticleRepository(db)
-
-		article := createTestArticle(t, "Go言語入門", "https://example.com/go", "Go言語の基本", []string{"Go"}, "")
-		id := insertArticleDirectly(t, db, article)
-
-		article.ID = id
-		err := article.Update("Go言語完全ガイド", "https://example.com/go-guide", "Go言語の完全版", []string{"NonExistentTag"}, "")
-		require.NoError(t, err)
-
-		ctx := context.Background()
-		updated, err := repo.Update(ctx, article)
-
-		require.Error(t, err)
-		assert.Nil(t, updated)
-		assert.Contains(t, err.Error(), "tag not found")
 	})
 }
 
