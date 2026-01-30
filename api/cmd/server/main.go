@@ -81,6 +81,9 @@ func main() {
 	// 記事自動作成
 	mux.HandleFunc("POST /api/articles/generate", articleGeneratorHandler.GenerateArticle)
 
+	// 記事検索（{id}より先に定義）
+	mux.HandleFunc("GET /api/articles/search", articleHandler.SearchArticles)
+
 	// 記事詳細取得
 	mux.HandleFunc("GET /api/articles/{id}", extractArticleID(articleHandler.GetArticleByID))
 
