@@ -650,7 +650,7 @@ describe('ArticleClient', () => {
 
             // 検証: スペースがエンコードされること
             expect(global.fetch).toHaveBeenCalledWith(
-                'http://localhost:8080/api/articles/search?keyword=test+article'
+                'http://localhost:8080/api/articles/search?keyword=test%20article'
             )
             expect(result).toHaveLength(1)
         })

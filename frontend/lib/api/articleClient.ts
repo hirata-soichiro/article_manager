@@ -112,6 +112,24 @@ class ArticleClient {
         }
     }
 
+    // キーワードで記事を検索
+    async searchArticles(keyword: string): Promise<Article[]> {
+        try {
+            const encodedKeyword = encodeURIComponent(keyword)
+            const response = await fetch(`${API_BASE_URL}/api/articles/search?keyword=${encodedKeyword}`)
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to search articles')
+            }
+
+            const data: ApiArticle[] = await response.json()
+            return data.map(this.convertToCamelCase)
+        } catch (error) {
+            throw error
+        }
+    }
+
     // URLから記事を自動生成
     async generate(url: string, memo?: string): Promise<Article> {
         try {
