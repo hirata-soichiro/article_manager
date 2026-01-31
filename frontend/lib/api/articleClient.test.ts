@@ -579,4 +579,277 @@ describe('ArticleClient', () => {
             expect(error.message).toContain('invalid URL')
         })
     })
+
+    // 記事検索のテスト
+    describe('searchArticles', () => {
+        it('キーワードで記事を検索できる', async () => {
+            // 検索結果データの準備
+            const mockSearchResults = [
+                mockApiArticle,
+                { ...mockApiArticle, id: 2, title: 'Another Test Article' },
+            ]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => mockSearchResults,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('test')
+
+            // 検証: 呼び出し回数、URL（クエリパラメータ付き）、データ件数、データ内容
+            expect(global.fetch).toHaveBeenCalledTimes(1)
+            expect(global.fetch).toHaveBeenCalledWith(
+                'http://localhost:8080/api/articles/search?keyword=test'
+            )
+            expect(result).toHaveLength(2)
+            expect(result[0]).toEqual(expectedArticle)
+            expect(result[1].id).toBe(2)
+            expect(result[1].title).toBe('Another Test Article')
+        })
+
+        it('キーワードに日本語が含まれる場合でも検索できる', async () => {
+            // 日本語キーワードでの検索結果データの準備
+            const mockSearchResults = [
+                { ...mockApiArticle, title: 'テスト記事', summary: 'これはテスト記事です' },
+            ]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => mockSearchResults,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('テスト')
+
+            // 検証: URLエンコードされたクエリパラメータ
+            expect(global.fetch).toHaveBeenCalledWith(
+                'http://localhost:8080/api/articles/search?keyword=%E3%83%86%E3%82%B9%E3%83%88'
+            )
+            expect(result).toHaveLength(1)
+            expect(result[0].title).toBe('テスト記事')
+        })
+
+        it('キーワードにスペースが含まれる場合でも検索できる', async () => {
+            // スペースを含むキーワードでの検索結果データの準備
+            const mockSearchResults = [mockApiArticle]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => mockSearchResults,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('test article')
+
+            // 検証: スペースがエンコードされること
+            expect(global.fetch).toHaveBeenCalledWith(
+                'http://localhost:8080/api/articles/search?keyword=test+article'
+            )
+            expect(result).toHaveLength(1)
+        })
+
+        it('検索結果が0件の場合は空配列を返す', async () => {
+            // 空配列のAPIレスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => [],
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('nonexistent')
+
+            // 検証: 空配列が返ること
+            expect(result).toEqual([])
+            expect(result).toHaveLength(0)
+        })
+
+        it('空文字列で検索した場合は400エラーをスローする', async () => {
+            // API400レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: false,
+                status: 400,
+                json: async () => ({ error: 'keyword is required' }),
+            })
+
+            // 実行と検証: エラーがスローされること
+            const error = await articleClient.searchArticles('').catch(e => e)
+            expect(error).toBeDefined()
+            expect(error.message).toContain('keyword is required')
+        })
+
+        it('特殊文字を含むキーワードで検索できる', async () => {
+            // 特殊文字を含むキーワードでの検索結果データの準備
+            const mockSearchResults = [mockApiArticle]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => mockSearchResults,
+            })
+
+            // 実行: 特殊文字を含むキーワード
+            const result = await articleClient.searchArticles('test&example')
+
+            // 検証: 特殊文字がエンコードされること
+            expect(global.fetch).toHaveBeenCalledWith(
+                'http://localhost:8080/api/articles/search?keyword=test%26example'
+            )
+            expect(result).toHaveLength(1)
+        })
+
+        it('検索結果のデータ変換が正しく行われる', async () => {
+            // snake_caseのAPIレスポンスを準備
+            const apiResponse = [
+                {
+                    id: 1,
+                    title: 'Search Result',
+                    url: 'https://example.com/search',
+                    summary: 'This is a search result',
+                    tags: ['search', 'test'],
+                    memo: 'Search memo',
+                    created_at: '2024-01-01 10:00:00',
+                    updated_at: '2024-01-01 11:00:00',
+                },
+            ]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => apiResponse,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('search')
+
+            // 検証: camelCaseに変換されていること
+            expect(result[0].createdAt).toBe('2024-01-01 10:00:00')
+            expect(result[0].updatedAt).toBe('2024-01-01 11:00:00')
+            expect(result[0]).not.toHaveProperty('created_at')
+            expect(result[0]).not.toHaveProperty('updated_at')
+        })
+
+        it('検索結果のtagsがnullの場合は空配列に変換される', async () => {
+            // tagsがnullのAPIレスポンスを準備
+            const apiResponse = [
+                {
+                    ...mockApiArticle,
+                    tags: null,
+                },
+            ]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => apiResponse,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('test')
+
+            // 検証: tagsが空配列であること
+            expect(result[0].tags).toEqual([])
+        })
+
+        it('検索結果のmemoがnullの場合は空文字列に変換される', async () => {
+            // memoがnullのAPIレスポンスを準備
+            const apiResponse = [
+                {
+                    ...mockApiArticle,
+                    memo: null,
+                },
+            ]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => apiResponse,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('test')
+
+            // 検証: memoが空文字列であること
+            expect(result[0].memo).toBe('')
+        })
+
+        it('APIエラー時にエラーをスローする', async () => {
+            // APIエラーレスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: false,
+                status: 500,
+                json: async () => ({ error: 'Internal Server Error' }),
+            })
+
+            // 実行と検証: エラーがスローされること
+            await expect(articleClient.searchArticles('test')).rejects.toThrow(
+                'Internal Server Error'
+            )
+        })
+
+        it('ネットワークエラー時にエラーをスローする', async () => {
+            // ネットワークエラーをモック化
+            ;(global.fetch as any).mockRejectedValue(new Error('Network error'))
+
+            // 実行と検証: エラーがスローされること
+            await expect(articleClient.searchArticles('test')).rejects.toThrow('Network error')
+        })
+
+        it('非常に長いキーワードでも検索できる', async () => {
+            // 長いキーワードでの検索結果データの準備
+            const longKeyword = 'a'.repeat(1000)
+            const mockSearchResults = [mockApiArticle]
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => mockSearchResults,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles(longKeyword)
+
+            // 検証: 正常に処理されること
+            expect(global.fetch).toHaveBeenCalledTimes(1)
+            expect(result).toHaveLength(1)
+        })
+
+        it('検索結果が多数の記事を含む場合でも正しく処理できる', async () => {
+            // 多数の検索結果データの準備（100件）
+            const mockSearchResults = Array.from({ length: 100 }, (_, i) => ({
+                ...mockApiArticle,
+                id: i + 1,
+                title: `Article ${i + 1}`,
+            }))
+
+            // API成功レスポンスをモック化
+            ;(global.fetch as any).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => mockSearchResults,
+            })
+
+            // 実行
+            const result = await articleClient.searchArticles('article')
+
+            // 検証: 全件が正しく変換されること
+            expect(result).toHaveLength(100)
+            expect(result[0].id).toBe(1)
+            expect(result[99].id).toBe(100)
+            expect(result[0].title).toBe('Article 1')
+            expect(result[99].title).toBe('Article 100')
+        })
+    })
 })
