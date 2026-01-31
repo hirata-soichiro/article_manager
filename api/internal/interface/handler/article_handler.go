@@ -168,6 +168,32 @@ func (h *ArticleHandler) DeleteArticle(w http.ResponseWriter, r *http.Request, i
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// 記事を検索する
+func (h *ArticleHandler) SearchArticles(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	keyword := r.URL.Query().Get("keyword")
+
+	trimmedKeyword := strings.TrimSpace(keyword)
+	if trimmedKeyword == "" {
+		h.respondError(w, http.StatusBadRequest, "keyword parameter is required and cannot be empty")
+		return
+	}
+
+	articles, err := h.usecase.SearchArticles(ctx, trimmedKeyword)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "failed to search articles")
+		return
+	}
+
+	response := make([]ArticleResponse, 0, len(articles))
+	for _, article := range articles {
+		response = append(response, toArticleResponse(article))
+	}
+
+	h.respondJSON(w, http.StatusOK, response)
+}
+
 // JSON形式でレスポンスを返す
 func (h *ArticleHandler) respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")

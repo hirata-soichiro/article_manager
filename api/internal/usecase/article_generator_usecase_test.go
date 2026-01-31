@@ -375,6 +375,9 @@ func TestGenerateArticleFromURL(t *testing.T) {
 					findByNameFunc: func(ctx context.Context, name string) (*entity.Tag, error) {
 						return nil, errors.New("database connection failed")
 					},
+					createFunc: func(ctx context.Context, tag *entity.Tag) (*entity.Tag, error) {
+						return nil, errors.New("database connection failed")
+					},
 				}
 				return aiService, &mockArticleRepository{}, tagRepo
 			},

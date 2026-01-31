@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 
 	"article-manager/internal/domain/entity"
@@ -98,4 +99,56 @@ func (r *MemoryArticleRepository) Delete(ctx context.Context, id int64) error {
 
 	delete(r.articles, id)
 	return nil
+}
+
+// 曖昧検索でタイトルまたは要約から記事を検索
+func (r *MemoryArticleRepository) Search(ctx context.Context, keyword string) ([]*entity.Article, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	trimmedKeyword := strings.TrimSpace(keyword)
+
+	// 空文字の場合は全件取得
+	if trimmedKeyword == "" {
+		result := make([]*entity.Article, 0, len(r.articles))
+		for _, article := range r.articles {
+			copied := *article
+			result = append(result, &copied)
+		}
+
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CreatedAt.After(result[j].CreatedAt)
+		})
+
+		return result, nil
+	}
+
+	keywords := strings.Fields(trimmedKeyword)
+
+	result := make([]*entity.Article, 0)
+	for _, article := range r.articles {
+		// 全てのキーワードがタイトルまたは要約に含まれているかチェック
+		allMatch := true
+		for _, kw := range keywords {
+			kwLower := strings.ToLower(kw)
+			titleLower := strings.ToLower(article.Title)
+			summaryLower := strings.ToLower(article.Summary)
+
+			if !strings.Contains(titleLower, kwLower) && !strings.Contains(summaryLower, kwLower) {
+				allMatch = false
+				break
+			}
+		}
+
+		if allMatch {
+			copied := *article
+			result = append(result, &copied)
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+
+	return result, nil
 }

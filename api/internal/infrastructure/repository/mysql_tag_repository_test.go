@@ -421,7 +421,7 @@ func TestMySQLTagRepository_Update(t *testing.T) {
 		tag := createTestTag(t, "Go")
 		id := insertTagDirectly(t, db, tag)
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 
 		tag.ID = id
 		originalUpdatedAt := tag.UpdatedAt

@@ -19,6 +19,7 @@ type mockArticleRepository struct {
 	findAllFunc  func(ctx context.Context) ([]*entity.Article, error)
 	updateFunc   func(ctx context.Context, article *entity.Article) (*entity.Article, error)
 	deleteFunc   func(ctx context.Context, id int64) error
+	searchFunc   func(ctx context.Context, keyword string) ([]*entity.Article, error)
 }
 
 func (m *mockArticleRepository) Create(ctx context.Context, article *entity.Article) (*entity.Article, error) {
@@ -39,6 +40,10 @@ func (m *mockArticleRepository) Update(ctx context.Context, article *entity.Arti
 
 func (m *mockArticleRepository) Delete(ctx context.Context, id int64) error {
 	return m.deleteFunc(ctx, id)
+}
+
+func (m *mockArticleRepository) Search(ctx context.Context, keyword string) ([]*entity.Article, error) {
+	return m.searchFunc(ctx, keyword)
 }
 
 // CreateArticleのテスト
@@ -478,6 +483,122 @@ func TestDeleteArticle(t *testing.T) {
 		err := usecase.DeleteArticle(context.Background(), 1)
 
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "database error")
+	})
+}
+
+// SearchArticlesのテスト
+func TestSearchArticles(t *testing.T) {
+	t.Run("正常系：キーワードで検索できる", func(t *testing.T) {
+		expected := []*entity.Article{
+			{
+				ID:      1,
+				Title:   "Go言語入門",
+				URL:     "https://example.com/1",
+				Summary: "Go言語の基本",
+				Tags:    []string{"Go"},
+				Memo:    "",
+			},
+			{
+				ID:      2,
+				Title:   "Go言語応用",
+				URL:     "https://example.com/2",
+				Summary: "Go言語の応用",
+				Tags:    []string{"Go"},
+				Memo:    "",
+			},
+		}
+
+		mockRepo := &mockArticleRepository{
+			searchFunc: func(ctx context.Context, keyword string) ([]*entity.Article, error) {
+				return expected, nil
+			},
+		}
+
+		usecase := NewArticleUsecase(mockRepo)
+		result, err := usecase.SearchArticles(context.Background(), "Go")
+
+		require.NoError(t, err)
+		assert.Equal(t, 2, len(result))
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("正常系：検索結果が0件の場合", func(t *testing.T) {
+		mockRepo := &mockArticleRepository{
+			searchFunc: func(ctx context.Context, keyword string) ([]*entity.Article, error) {
+				return []*entity.Article{}, nil
+			},
+		}
+
+		usecase := NewArticleUsecase(mockRepo)
+		result, err := usecase.SearchArticles(context.Background(), "存在しないキーワード")
+
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(result))
+		assert.NotNil(t, result)
+	})
+
+	t.Run("正常系：前後の空白をトリミングして検索", func(t *testing.T) {
+		expected := []*entity.Article{
+			{
+				ID:      1,
+				Title:   "Go言語入門",
+				URL:     "https://example.com/1",
+				Summary: "Go言語の基本",
+				Tags:    []string{"Go"},
+				Memo:    "",
+			},
+		}
+
+		mockRepo := &mockArticleRepository{
+			searchFunc: func(ctx context.Context, keyword string) ([]*entity.Article, error) {
+				// トリミングされたキーワードが渡されることを確認
+				assert.Equal(t, "Go", keyword)
+				return expected, nil
+			},
+		}
+
+		usecase := NewArticleUsecase(mockRepo)
+		result, err := usecase.SearchArticles(context.Background(), "  Go  ")
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, len(result))
+	})
+
+	t.Run("異常系：キーワードが空の場合エラー", func(t *testing.T) {
+		mockRepo := &mockArticleRepository{}
+		usecase := NewArticleUsecase(mockRepo)
+
+		result, err := usecase.SearchArticles(context.Background(), "")
+
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "keyword cannot be empty")
+	})
+
+	t.Run("異常系：キーワードがスペースのみの場合エラー", func(t *testing.T) {
+		mockRepo := &mockArticleRepository{}
+		usecase := NewArticleUsecase(mockRepo)
+
+		result, err := usecase.SearchArticles(context.Background(), "   ")
+
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "keyword cannot be empty")
+	})
+
+	t.Run("異常系：リポジトリがエラーを返す", func(t *testing.T) {
+		mockRepo := &mockArticleRepository{
+			searchFunc: func(ctx context.Context, keyword string) ([]*entity.Article, error) {
+				return nil, errors.New("database error")
+			},
+		}
+
+		usecase := NewArticleUsecase(mockRepo)
+		result, err := usecase.SearchArticles(context.Background(), "Go")
+
+		require.Error(t, err)
+		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), "database error")
 	})
 }

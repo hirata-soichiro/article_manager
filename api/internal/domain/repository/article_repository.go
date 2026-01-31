@@ -22,4 +22,7 @@ type ArticleRepository interface {
 
 	// 指定されたIDの記事を削除
 	Delete(ctx context.Context, id int64) error
+
+	// 曖昧検索でタイトルまたは要約から記事を検索
+	Search(ctx context.Context, keyword string) ([]*entity.Article, error)
 }

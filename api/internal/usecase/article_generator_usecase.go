@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	"article-manager/internal/domain/entity"
 	"article-manager/internal/domain/repository"
@@ -30,7 +29,7 @@ func NewArticleGeneratorUsecase(
 	}
 }
 
-// URLから記事情報を自動生成（DB保存なし）
+// URLから記事情報を自動生成してDBに保存
 func (u *ArticleGeneratorUsecase) GenerateArticleFromURL(ctx context.Context, url string, memo string) (*entity.Article, error) {
 	if url == "" {
 		return nil, errors.New("url is required")
@@ -39,6 +38,7 @@ func (u *ArticleGeneratorUsecase) GenerateArticleFromURL(ctx context.Context, ur
 		return nil, errors.New("invalid url format")
 	}
 
+	// AIで記事情報を生成
 	generated, err := u.aiGenerator.GenerateArticleFromURL(ctx, service.ArticleGenerationRequest{URL: url})
 	if err != nil {
 		return nil, err
@@ -51,26 +51,43 @@ func (u *ArticleGeneratorUsecase) GenerateArticleFromURL(ctx context.Context, ur
 		return nil, errors.New("summary is required")
 	}
 
-	// タグ名のバリデーションのみ実行（DB作成はしない）
+	// タグの処理（既存タグを検索し、なければ作成）
 	tags := []string{}
 	for _, tagName := range generated.SuggestedTags {
 		if tagName == "" {
 			return nil, errors.New("tag cannot be empty")
 		}
-		tags = append(tags, tagName)
+
+		// タグを検索
+		existingTag, err := u.tagRepo.FindByName(ctx, tagName)
+		if err != nil {
+			// タグが存在しない場合は新規作成
+			newTag, err := entity.NewTag(tagName)
+			if err != nil {
+				return nil, err
+			}
+			createdTag, err := u.tagRepo.Create(ctx, newTag)
+			if err != nil {
+				return nil, err
+			}
+			tags = append(tags, createdTag.Name)
+		} else {
+			// タグが既存の場合
+			tags = append(tags, existingTag.Name)
+		}
 	}
 
-	// 生成された情報のみを返却（DBには保存しない）
-	article := &entity.Article{
-		ID:        0, // IDは0（まだ保存されていない）
-		Title:     generated.Title,
-		URL:       url,
-		Summary:   generated.Summary,
-		Tags:      tags,
-		Memo:      memo,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+	// 記事エンティティを作成
+	article, err := entity.NewArticle(generated.Title, url, generated.Summary, tags, memo)
+	if err != nil {
+		return nil, err
 	}
 
-	return article, nil
+	// 記事をDBに保存
+	savedArticle, err := u.articleRepo.Create(ctx, article)
+	if err != nil {
+		return nil, err
+	}
+
+	return savedArticle, nil
 }
