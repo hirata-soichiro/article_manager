@@ -23,7 +23,7 @@ export default function DeleteConfirmDialog({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* オーバーレイ（背景暗転） */}
             <div
-                className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
+                className="absolute inset-0 bg-black/30 transition-opacity"
                 onClick={onCancel}
                 aria-hidden="true"
             />
@@ -54,22 +54,7 @@ export default function DeleteConfirmDialog({
                         type="button"
                         onClick={onCancel}
                         disabled={isDeleting}
-                        className="flex-1 px-4 py-2 rounded-lg transition font-medium"
-                        style={{
-                            backgroundColor: isDeleting ? '#f3f4f6' : '#e5e7eb',
-                            color: '#374151',
-                            cursor: isDeleting ? 'not-allowed' : 'pointer',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!isDeleting) {
-                                e.currentTarget.style.backgroundColor = '#d1d5db'
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!isDeleting) {
-                                e.currentTarget.style.backgroundColor = '#e5e7eb'
-                            }
-                        }}
+                        className="flex-1 px-4 py-2 rounded-lg transition font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                         キャンセル
                     </button>
@@ -77,22 +62,7 @@ export default function DeleteConfirmDialog({
                         type="button"
                         onClick={onConfirm}
                         disabled={isDeleting}
-                        className="flex-1 px-4 py-2 rounded-lg transition font-medium"
-                        style={{
-                            backgroundColor: isDeleting ? '#fca5a5' : '#dc2626',
-                            color: '#ffffff',
-                            cursor: isDeleting ? 'not-allowed' : 'pointer',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!isDeleting) {
-                                e.currentTarget.style.backgroundColor = '#b91c1c'
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!isDeleting) {
-                                e.currentTarget.style.backgroundColor = '#dc2626'
-                            }
-                        }}
+                        className="flex-1 px-4 py-2 rounded-lg transition font-medium bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed"
                     >
                         {isDeleting ? '削除中...' : '削除'}
                     </button>

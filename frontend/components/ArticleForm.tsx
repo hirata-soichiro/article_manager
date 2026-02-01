@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, FormEvent } from 'react'
+import React, { useState, useEffect, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { articleClient } from '@/lib/api/articleClient'
 import { tagClient } from '@/lib/api/tagClient'
@@ -30,6 +30,71 @@ export default function ArticleForm() {
     const [isGenerating, setIsGenerating] = useState(false)
     const [generateError, setGenerateError] = useState<string | null>(null)
     const [generatedTags, setGeneratedTags] = useState<string[]>([])
+
+    // タグUI の状態
+    const [tagSearch, setTagSearch] = useState('')
+    const [showAllTags, setShowAllTags] = useState(false)
+
+    // 新しいタグを作成して選択
+    const createAndSelectTag = () => {
+        const newTagName = tagSearch.trim()
+
+        // バリデーション
+        if (!newTagName) return
+        if (newTagName.length > 50) {
+            alert('タグ名は50文字以内にしてください')
+            return
+        }
+
+        // 重複チェック（大文字小文字を区別しない）
+        const isDuplicate = tags.some(tag =>
+            tag.name.toLowerCase() === newTagName.toLowerCase()
+        )
+
+        if (isDuplicate) {
+            alert('このタグは既に存在します')
+            return
+        }
+
+        // 新しいタグをリストに追加
+        const newTag: Tag = {
+            id: 0, // 新規タグはIDが0
+            name: newTagName,
+            createdAt: '',
+            updatedAt: ''
+        }
+        setTags([...tags, newTag])
+        setGeneratedTags([...generatedTags, newTagName])
+
+        // 選択済みタグに追加
+        setSelectedTags([...selectedTags, newTagName])
+
+        // 検索ボックスをクリア
+        setTagSearch('')
+    }
+
+    // Enterキーで新しいタグを作成
+    const handleTagSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const trimmedSearch = tagSearch.trim()
+            if (!trimmedSearch) return
+
+            // 既存タグに完全一致するものがあるか確認
+            const existingTag = tags.find(tag =>
+                tag.name.toLowerCase() === trimmedSearch.toLowerCase()
+            )
+
+            if (existingTag && !selectedTags.includes(existingTag.name)) {
+                // 既存タグを選択
+                toggleTag(existingTag.name)
+                setTagSearch('')
+            } else if (!existingTag) {
+                // 新しいタグを作成
+                createAndSelectTag()
+            }
+        }
+    }
 
     // バリデーションエラーの状態
     const [titleError, setTitleError] = useState<string | null>(null)
@@ -289,31 +354,55 @@ export default function ArticleForm() {
                     {urlError && <p className="mt-1 text-sm text-red-500">{urlError}</p>}
                 </div>
 
-                {/* AI自動生成ボタン */}
-                <div className="mt-3">
-                    <button
-                        type="button"
-                        onClick={handleAIGenerate}
-                        disabled={!url.trim() || isGenerating || isSubmitting}
-                        className="px-6 py-2 rounded-lg transition font-medium"
-                        style={{
-                            display: 'inline-block',
-                            minHeight: '40px',
-                            minWidth: '120px',
-                            backgroundColor: (!url.trim() || isGenerating || isSubmitting) ? '#9ca3af' : '#16a34a',
-                            color: '#ffffff',
-                            cursor: (!url.trim() || isGenerating || isSubmitting) ? 'not-allowed' : 'pointer',
-                            border: 'none'
-                        }}
-                    >
-                        {isGenerating ? '生成中...' : 'AI自動生成'}
-                    </button>
-                    {generateError && (
-                        <p className="mt-2 text-sm text-red-500">{generateError}</p>
-                    )}
-                    {isGenerating && (
-                        <p className="mt-2 text-sm text-blue-600">URLの内容を分析しています...</p>
-                    )}
+                {/* AI自動生成セクション */}
+                <div className="mb-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-6">
+                    <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">AIで記事情報を自動生成</h3>
+                            <p className="text-sm text-gray-600 mb-4">URLを入力するだけで、タイトル、要約、関連タグを自動的に生成します</p>
+                            <button
+                                type="button"
+                                onClick={handleAIGenerate}
+                                disabled={!url.trim() || isGenerating || isSubmitting}
+                                className="w-full sm:w-auto px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                        <span>生成中...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        <span>AI自動生成する</span>
+                                    </>
+                                )}
+                            </button>
+                            {generateError && (
+                                <p className="mt-3 text-sm text-red-600 flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {generateError}
+                                </p>
+                            )}
+                            {isGenerating && (
+                                <p className="mt-3 text-sm text-green-700 flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    URLの内容を分析しています...
+                                </p>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* 要約 */}
@@ -339,74 +428,149 @@ export default function ArticleForm() {
 
                 {/* タグ選択 */}
                 <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">タグ</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">タグ</label>
                     {tagsLoading ? (
                         <div className="text-gray-500">タグを読み込んでいます...</div>
                     ) : (
-                        <div className="flex flex-wrap gap-2">
-                            {tags.map((tag) => {
-                                const isNewTag = generatedTags.includes(tag.name)
-                                const isSelected = selectedTags.includes(tag.name)
+                        <div>
+                            {/* 選択済みタグ表示 */}
+                            {selectedTags.length > 0 && (
+                                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <span className="text-sm font-semibold text-blue-900">選択済み ({selectedTags.length})</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedTags.map((tagName) => {
+                                            const isNewTag = generatedTags.includes(tagName)
+                                            return (
+                                                <button
+                                                    key={tagName}
+                                                    type="button"
+                                                    onClick={() => toggleTag(tagName)}
+                                                    className="px-3 py-1.5 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 shadow-sm"
+                                                >
+                                                    <span>{tagName}</span>
+                                                    {isNewTag && (
+                                                        <span className="text-xs px-1.5 py-0.5 bg-yellow-400 text-yellow-900 rounded font-bold">NEW</span>
+                                                    )}
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
-                                let buttonStyle: React.CSSProperties = {}
-                                if (isNewTag) {
-                                    // 新規タグの場合
-                                    if (isSelected) {
-                                        // 選択済み：濃い緑
-                                        buttonStyle = {
-                                            backgroundColor: '#16a34a',
-                                            color: '#ffffff',
-                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                                        }
-                                    } else {
-                                        // 未選択：薄い緑
-                                        buttonStyle = {
-                                            backgroundColor: '#bbf7d0',
-                                            color: '#166534',
-                                            border: '2px solid #4ade80'
-                                        }
-                                    }
-                                } else {
-                                    // 既存タグの場合
-                                    if (isSelected) {
-                                        // 選択済み：青
-                                        buttonStyle = {
-                                            backgroundColor: '#2563eb',
-                                            color: '#ffffff',
-                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                                        }
-                                    } else {
-                                        // 未選択：グレー
-                                        buttonStyle = {
-                                            backgroundColor: '#f3f4f6',
-                                            color: '#374151'
-                                        }
-                                    }
-                                }
+                            {/* 検索ボックス */}
+                            <div className="mb-3">
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={tagSearch}
+                                        onChange={(e) => setTagSearch(e.target.value)}
+                                        onKeyDown={handleTagSearchKeyDown}
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="タグを検索... (Enterで新規作成)"
+                                    />
+                                </div>
+                            </div>
 
-                                return (
-                                    <button
-                                        key={tag.id || tag.name}
-                                        type="button"
-                                        onClick={() => toggleTag(tag.name)}
-                                        className="px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1"
-                                        style={buttonStyle}
-                                    >
-                                        {tag.name}
-                                        {isNewTag && (
-                                            <span
-                                                className="text-xs px-1.5 py-0.5 rounded"
-                                                style={{
-                                                    backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.3)' : '#16a34a',
-                                                    color: '#ffffff'
-                                                }}
-                                            >
-                                                新規
-                                            </span>
-                                        )}
-                                    </button>
-                                )
-                            })}
+                            {/* タグ一覧 */}
+                            <div className="flex flex-wrap gap-2">
+                                {(() => {
+                                    // 検索でフィルタリング
+                                    const filteredTags = tags.filter(tag =>
+                                        !selectedTags.includes(tag.name) &&
+                                        tag.name.toLowerCase().includes(tagSearch.toLowerCase())
+                                    )
+
+                                    // 表示するタグを決定
+                                    const displayTags = showAllTags ? filteredTags : filteredTags.slice(0, 8)
+                                    const hasMore = filteredTags.length > 8
+
+                                    // 新しいタグを作成可能か判定
+                                    const trimmedSearch = tagSearch.trim()
+                                    const canCreateNewTag = trimmedSearch && filteredTags.length === 0 &&
+                                        !tags.some(tag => tag.name.toLowerCase() === trimmedSearch.toLowerCase())
+
+                                    return (
+                                        <>
+                                            {displayTags.map((tag) => {
+                                                const isNewTag = generatedTags.includes(tag.name)
+
+                                                return (
+                                                    <button
+                                                        key={tag.id || tag.name}
+                                                        type="button"
+                                                        onClick={() => toggleTag(tag.name)}
+                                                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 hover:shadow-sm transition-all duration-200 flex items-center gap-1.5"
+                                                    >
+                                                        <span>{tag.name}</span>
+                                                        {isNewTag && (
+                                                            <span className="text-xs px-1.5 py-0.5 bg-yellow-400 text-yellow-900 rounded font-bold">NEW</span>
+                                                        )}
+                                                    </button>
+                                                )
+                                            })}
+
+                                            {/* 新しいタグを作成 */}
+                                            {canCreateNewTag && (
+                                                <button
+                                                    type="button"
+                                                    onClick={createAndSelectTag}
+                                                    className="px-3 py-1.5 bg-green-50 border-2 border-green-500 text-green-700 rounded-full text-sm font-semibold hover:bg-green-100 transition-all duration-200 flex items-center gap-1.5"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                    <span>「{trimmedSearch}」を新しいタグとして作成</span>
+                                                </button>
+                                            )}
+
+                                            {/* もっと見るボタン */}
+                                            {hasMore && !tagSearch && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAllTags(!showAllTags)}
+                                                    className="px-3 py-1.5 border-2 border-blue-600 text-blue-600 rounded-full text-sm font-medium hover:bg-blue-50 transition-all duration-200 flex items-center gap-1"
+                                                >
+                                                    {showAllTags ? (
+                                                        <>
+                                                            <span>閉じる</span>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                                            </svg>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span>もっと見る (+{filteredTags.length - 8})</span>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                            </svg>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+
+                                            {filteredTags.length === 0 && !canCreateNewTag && (
+                                                <p className="text-sm text-gray-500 py-2">
+                                                    {tagSearch ? '該当するタグが見つかりません' : 'タグがありません'}
+                                                </p>
+                                            )}
+                                        </>
+                                    )
+                                })()}
+                            </div>
                         </div>
                     )}
                 </div>

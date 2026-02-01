@@ -43,7 +43,7 @@ export default function SearchBar({
     }
 
     return (
-        <form onSubmit={handleSubmit} className="w-full">
+        <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto">
             <div className="flex gap-2 items-center">
                 {/* 検索アイコン付き入力フィールド */}
                 <div className="relative flex-1">
@@ -112,10 +112,10 @@ export default function SearchBar({
                     disabled={disabled}
                     className={`
                         px-6 py-2 rounded-lg font-medium transition-all duration-200
-                        flex items-center gap-2 whitespace-nowrap
+                        flex items-center gap-2 whitespace-nowrap shadow-md
                         ${disabled
                             ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-lg hover:scale-105 active:scale-95'
                         }
                     `}
                 >

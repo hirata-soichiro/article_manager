@@ -130,22 +130,22 @@ func (c *GeminiClient) GenerateArticleFromURL(ctx context.Context, req service.A
 
 // プロンプト構築
 func (c *GeminiClient) buildPrompt(url string) string {
-	return fmt.Sprintf(`以下のURLの記事を分析し、記事管理用の情報を生成してください。
-
-URL: %s
-
-記事管理用の情報を生成する際は以下の要件を必ず守ってください。
-- summaryは記事の核心を捉え、200文字以内にまとめる
-- suggestedTagsは3-5個、検索しやすく具体的なものを選ぶ
-- 技術記事の場合は技術スタックをタグに含める
-- 日本語記事は日本語で、英語記事は翻訳し日本語で出力する
-- 説明文やマークダウンのコードブロックは不要
-- 以下のJSON形式のみで出力する
-{
-  "title": "記事のタイトル",
-  "summary": "記事の要約",
-  "suggestedTags": ["タグ1", "タグ2", "タグ3"]
-}`, url)
+	return fmt.Sprintf("以下のURLの記事を分析し、記事管理用の情報をJSON形式で生成してください。\n\n" +
+		"URL: %s\n\n" +
+		"【重要な指示】\n" +
+		"1. 出力は必ず以下のJSON形式のみとし、それ以外のテキスト（説明文、マークダウン、コードブロック記号など）は一切含めないでください\n" +
+		"2. JSONオブジェクトのみを出力してください（前後に余分なテキストを含めない）\n" +
+		"3. summaryは記事の核心を捉え、200文字以内で簡潔にまとめる\n" +
+		"4. suggestedTagsは3-5個、検索しやすく具体的なものを選ぶ\n" +
+		"5. 技術記事の場合は使用されている技術スタックをタグに含める\n" +
+		"6. 日本語記事は日本語で、英語記事は日本語に翻訳して出力する\n\n" +
+		"出力形式（このフォーマット通りに出力）:\n" +
+		"{\n" +
+		"  \"title\": \"記事のタイトル\",\n" +
+		"  \"summary\": \"記事の要約（200文字以内）\",\n" +
+		"  \"suggestedTags\": [\"タグ1\", \"タグ2\", \"タグ3\", \"タグ4\", \"タグ5\"]\n" +
+		"}\n\n" +
+		"必ず上記のJSON形式のみで回答してください。説明文は不要です。", url)
 }
 
 // Gemini API呼び出し
@@ -200,8 +200,8 @@ func (c *GeminiClient) makeRequest(ctx context.Context, prompt string) (*geminiR
 			{URLContext: &geminiURLContext{}},
 		},
 		GenerationConfig: &geminiGenerationConfig{
-			Temperature:     0.7,
-			MaxOutputTokens: 8192,
+			Temperature:     0.3, // より決定論的な出力のため低く設定
+			MaxOutputTokens: 4096,
 		},
 	}
 
@@ -313,16 +313,17 @@ func (c *GeminiClient) isRetryable(err error) bool {
 		aiErr.Code == service.ErrCodeTimeout
 }
 
-// マークダウンのコードブロックからJSONを抽出
+// マークダウンのコードブロックからJSONを抽出（フェイルセーフ用）
 func (c *GeminiClient) extractJSON(text string) string {
+	text = strings.TrimSpace(text)
+
 	// ```json ... ``` または ``` ... ``` で囲まれている場合は中身を抽出
 	if strings.HasPrefix(text, "```") {
-		// 最初の改行以降を取得
 		lines := strings.Split(text, "\n")
 		if len(lines) > 2 {
-			// 最初の行（```json）を除去
+			// 最初の行（```json または ```）を除去
 			content := strings.Join(lines[1:], "\n")
-			// 最後の```を見つけて除去
+			// 最後の ``` を除去
 			if idx := strings.LastIndex(content, "```"); idx != -1 {
 				content = content[:idx]
 			}
@@ -330,32 +331,27 @@ func (c *GeminiClient) extractJSON(text string) string {
 		}
 	}
 
-	// JSON オブジェクトの開始位置を探す
+	// 念のため、最初の { から最後の } までを抽出
 	startIdx := strings.Index(text, "{")
-	if startIdx == -1 {
-		return strings.TrimSpace(text)
-	}
-
-	// JSON オブジェクトの終了位置を探す
 	endIdx := strings.LastIndex(text, "}")
-	if endIdx == -1 || endIdx < startIdx {
-		return strings.TrimSpace(text)
+
+	if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
+		text = text[startIdx : endIdx+1]
 	}
 
-	// JSON 部分のみを抽出
-	return strings.TrimSpace(text[startIdx : endIdx+1])
+	return strings.TrimSpace(text)
 }
 
 // レスポンスをパース
 func (c *GeminiClient) parseResponse(resp *geminiResponse, sourceURL string) (*service.GeneratedArticle, error) {
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
-		return nil, fmt.Errorf("empty response")
+		return nil, fmt.Errorf("empty response from API")
 	}
 
-	text := resp.Candidates[0].Content.Parts[0].Text
+	originalText := resp.Candidates[0].Content.Parts[0].Text
 
 	// マークダウンのコードブロックを除去
-	text = c.extractJSON(text)
+	extractedText := c.extractJSON(originalText)
 
 	var data struct {
 		Title         string   `json:"title"`
@@ -363,12 +359,18 @@ func (c *GeminiClient) parseResponse(resp *geminiResponse, sourceURL string) (*s
 		SuggestedTags []string `json:"suggestedTags"`
 	}
 
-	if err := json.Unmarshal([]byte(text), &data); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	if err := json.Unmarshal([]byte(extractedText), &data); err != nil {
+		// デバッグ情報を含めたエラーメッセージ
+		return nil, fmt.Errorf("failed to parse JSON: %w\nOriginal text: %s\nExtracted text: %s", err, originalText, extractedText)
 	}
 
 	if data.Title == "" || data.Summary == "" {
-		return nil, fmt.Errorf("missing required fields")
+		return nil, fmt.Errorf("missing required fields (title or summary is empty)\nParsed data: title=%s, summary=%s, tags=%v", data.Title, data.Summary, data.SuggestedTags)
+	}
+
+	// タグが空の場合はデフォルト値を設定
+	if len(data.SuggestedTags) == 0 {
+		data.SuggestedTags = []string{}
 	}
 
 	return &service.GeneratedArticle{
