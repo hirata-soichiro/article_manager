@@ -356,22 +356,7 @@ export default function ArticleEditForm() {
                         type="button"
                         onClick={handleDeleteClick}
                         disabled={isSubmitting || isDeleting}
-                        className="px-6 py-3 rounded-lg transition font-medium"
-                        style={{
-                            backgroundColor: isSubmitting || isDeleting ? '#fca5a5' : '#dc2626',
-                            color: '#ffffff',
-                            cursor: isSubmitting || isDeleting ? 'not-allowed' : 'pointer',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!isSubmitting && !isDeleting) {
-                                e.currentTarget.style.backgroundColor = '#b91c1c'
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!isSubmitting && !isDeleting) {
-                                e.currentTarget.style.backgroundColor = '#dc2626'
-                            }
-                        }}
+                        className="px-6 py-3 rounded-lg transition font-medium bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed"
                     >
                         削除
                     </button>

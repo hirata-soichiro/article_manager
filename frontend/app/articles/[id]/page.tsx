@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { articleClient } from '@/lib/api/articleClient'
 import { Article } from '@/types/article'
-import TagList from '@/components/TagList'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
 
 export default function ArticleDetailPage() {
@@ -93,80 +92,98 @@ export default function ArticleDetailPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
-            {/* ヘッダー */}
-            <div className="mb-6 flex justify-between items-start">
-                <div>
+        <div className="min-h-screen bg-gray-50 pb-12">
+            <div className="max-w-5xl mx-auto px-4 py-8">
+                {/* ヘッダー */}
+                <div className="mb-8 flex justify-between items-center">
                     <Link
                         href="/articles"
-                        className="text-blue-600 hover:underline text-sm mb-2 inline-block"
+                        className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
                     >
-                        ← 記事一覧に戻る
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        <span className="font-medium">記事一覧に戻る</span>
                     </Link>
+                    <div className="flex gap-2">
+                        <Link
+                            href={`/articles/${article.id}/edit`}
+                            className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 flex items-center gap-2"
+                            aria-label="記事を編集"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            <span className="text-sm font-medium hidden sm:inline">編集</span>
+                        </Link>
+                        <button
+                            onClick={handleDeleteClick}
+                            className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center gap-2"
+                            aria-label="記事を削除"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="text-sm font-medium hidden sm:inline">削除</span>
+                        </button>
+                    </div>
                 </div>
-                <div className="flex gap-2">
-                    <Link
-                        href={`/articles/${article.id}/edit`}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    >
-                        編集
-                    </Link>
-                    <button
-                        onClick={handleDeleteClick}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-                    >
-                        削除
-                    </button>
-                </div>
-            </div>
 
-            {deleteError && (
-                <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-600">
-                    {deleteError}
-                </div>
-            )}
+                {deleteError && (
+                    <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-600">
+                        {deleteError}
+                    </div>
+                )}
 
-            {/* 記事詳細 */}
-            <div className="bg-white rounded-lg shadow-md p-8">
-                <h1 className="text-3xl font-bold text-gray-800 mb-4">
-                    {article.title}
-                </h1>
+                {/* 記事詳細 */}
+                <div className="bg-white rounded-xl shadow-lg p-8 md:p-12 border border-gray-200">
+                    {/* タイトル */}
+                    <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+                        {article.title}
+                    </h1>
 
-                <div className="mb-6">
+                    {/* URL */}
                     <a
                         href={article.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline break-all"
+                        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-8 group"
                     >
-                        {article.url}
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        <span className="text-sm group-hover:underline break-all">{article.url}</span>
                     </a>
-                </div>
 
-                <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-700 mb-2">要約</h2>
-                    <p className="text-gray-600 whitespace-pre-wrap">{article.summary}</p>
-                </div>
+                    {/* タグ */}
+                    {article.tags.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex flex-wrap gap-2">
+                                {article.tags.map((tag, index) => (
+                                    <span
+                                        key={index}
+                                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium"
+                                    >
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
-                {article.tags.length > 0 && (
-                    <div className="mb-6">
-                        <h2 className="text-lg font-semibold text-gray-700 mb-2">タグ</h2>
-                        <TagList tags={article.tags} />
+                    {/* 要約 */}
+                    <div className="mb-8 bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
+                        <h2 className="text-sm font-bold text-blue-900 uppercase tracking-wide mb-3">要約</h2>
+                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{article.summary}</p>
                     </div>
-                )}
 
-                {article.memo && (
-                    <div className="mb-6">
-                        <h2 className="text-lg font-semibold text-gray-700 mb-2">メモ</h2>
-                        <p className="text-gray-600 whitespace-pre-wrap">{article.memo}</p>
-                    </div>
-                )}
-
-                <div className="border-t pt-4 mt-6">
-                    <div className="text-sm text-gray-500">
-                        <p>作成日時: {new Date(article.createdAt).toLocaleString('ja-JP')}</p>
-                        <p>更新日時: {new Date(article.updatedAt).toLocaleString('ja-JP')}</p>
-                    </div>
+                    {/* メモ */}
+                    {article.memo && (
+                        <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-lg">
+                            <h2 className="text-sm font-bold text-amber-900 uppercase tracking-wide mb-3">メモ</h2>
+                            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap italic">{article.memo}</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
