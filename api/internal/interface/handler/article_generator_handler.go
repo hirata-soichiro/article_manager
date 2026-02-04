@@ -1,15 +1,16 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"article-manager/internal/domain/entity"
-	"article-manager/internal/domain/service"
+	domainerrors "article-manager/internal/domain/errors"
+	"article-manager/internal/infrastructure/logger"
 	"article-manager/internal/usecase"
+
+	"go.uber.org/zap"
 )
 
 // 記事自動生成ハンドラー
@@ -32,69 +33,36 @@ type GenerateArticleRequest struct {
 
 // URLから記事を自動生成
 func (h *ArticleGeneratorHandler) GenerateArticle(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+	ctx := r.Context()
 
 	var req GenerateArticleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "Invalid request body")
+		logger.Warn("Failed to decode request body",
+			zap.Error(err),
+			zap.String("operation", "GenerateArticle"),
+		)
+		HandleError(w, domainerrors.InvalidArgumentError("request body", "invalid JSON format"), "GenerateArticle")
 		return
 	}
+
+	logger.Info("Generating article from URL",
+		zap.String("url", req.URL),
+		zap.String("memo", req.Memo),
+	)
 
 	article, err := h.generatorUsecase.GenerateArticleFromURL(ctx, req.URL, req.Memo)
 	if err != nil {
-		h.handleGeneratorError(w, err)
+		HandleError(w, err, "GenerateArticle")
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, h.toArticleResponse(article))
-}
+	logger.Info("Successfully generated article",
+		zap.Int64("id", article.ID),
+		zap.String("title", article.Title),
+		zap.String("url", article.URL),
+	)
 
-// AI生成エラーのハンドリング
-func (h *ArticleGeneratorHandler) handleGeneratorError(w http.ResponseWriter, err error) {
-	if aiErr, ok := err.(*service.AIGeneratorError); ok {
-		switch aiErr.Code {
-		case service.ErrCodeAPILimit:
-			h.respondError(w, http.StatusTooManyRequests, aiErr.Message)
-		case service.ErrCodeTimeout:
-			h.respondError(w, http.StatusGatewayTimeout, aiErr.Message)
-		case service.ErrCodeInvalidResponse:
-			h.respondError(w, http.StatusBadGateway, aiErr.Message)
-		case service.ErrCodeUnauthorized:
-			h.respondError(w, http.StatusUnauthorized, aiErr.Message)
-		case service.ErrCodeContentBlocked:
-			h.respondError(w, http.StatusForbidden, aiErr.Message)
-		case service.ErrCodeNetworkError:
-			h.respondError(w, http.StatusBadGateway, aiErr.Message)
-		case service.ErrCodeInvalidURL:
-			h.respondError(w, http.StatusBadRequest, aiErr.Message)
-		default:
-			h.respondError(w, http.StatusInternalServerError, aiErr.Message)
-		}
-		return
-	}
-
-	// バリデーションエラー
-	if h.isValidationError(err) {
-		h.respondError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// その他のエラー
-	h.respondError(w, http.StatusInternalServerError, "failed to generate article")
-}
-
-// JSON形式でレスポンスを返す
-func (h *ArticleGeneratorHandler) respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
-
-// エラーレスポンスを返す
-func (h *ArticleGeneratorHandler) respondError(w http.ResponseWriter, statusCode int, message string) {
-	h.respondJSON(w, statusCode, ErrorResponse{Error: message})
+	RespondSuccess(w, http.StatusOK, h.toArticleResponse(article))
 }
 
 // エンティティをレスポンス形式に変換する
@@ -112,28 +80,4 @@ func (h *ArticleGeneratorHandler) toArticleResponse(article *entity.Article) Art
 		CreatedAt: article.CreatedAt.In(jst).Format("2006-01-02 15:04:05"),
 		UpdatedAt: article.UpdatedAt.In(jst).Format("2006-01-02 15:04:05"),
 	}
-}
-
-// バリデーションエラーかどうかを判定する
-func (h *ArticleGeneratorHandler) isValidationError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	message := err.Error()
-	validationKeywords := []string{
-		"required",
-		"must be",
-		"cannot be empty",
-		"must start with",
-		"invalid url format",
-	}
-
-	for _, keyword := range validationKeywords {
-		if strings.Contains(message, keyword) {
-			return true
-		}
-	}
-
-	return false
 }

@@ -3,14 +3,16 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 
 	"article-manager/internal/domain/entity"
+	domainerrors "article-manager/internal/domain/errors"
 	"article-manager/internal/domain/repository"
+	"article-manager/internal/infrastructure/logger"
 
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 // articlesテーブルとのマッピング
@@ -48,12 +50,22 @@ func NewMySQLArticleRepository(db *sqlx.DB) repository.ArticleRepository {
 // 新しい記事を保存
 func (r *mysqlArticleRepository) Create(ctx context.Context, article *entity.Article) (*entity.Article, error) {
 	if article == nil {
-		return nil, errors.New("article is nil")
+		logger.Error("Attempted to create nil article")
+		return nil, domainerrors.InvalidArgumentError("article", "article cannot be nil")
 	}
+
+	logger.Debug("Creating article in database",
+		zap.String("title", article.Title),
+		zap.String("url", article.URL),
+	)
 
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		logger.Error("Failed to begin transaction",
+			zap.Error(err),
+			zap.String("operation", "Create"),
+		)
+		return nil, domainerrors.DatabaseError("begin transaction", err)
 	}
 	defer func() {
 		if p := recover(); p != nil {
@@ -72,13 +84,20 @@ func (r *mysqlArticleRepository) Create(ctx context.Context, article *entity.Art
 	result, err := tx.ExecContext(ctx, query, article.Title, article.URL, article.Summary, memo, article.CreatedAt, article.UpdatedAt)
 	if err != nil {
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to insert article: %w", err)
+		logger.Error("Failed to insert article",
+			zap.Error(err),
+			zap.String("title", article.Title),
+		)
+		return nil, domainerrors.DatabaseError("insert article", err)
 	}
 
 	articleID, err := result.LastInsertId()
 	if err != nil {
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to get last insert id: %w", err)
+		logger.Error("Failed to get last insert ID",
+			zap.Error(err),
+		)
+		return nil, domainerrors.DatabaseError("get last insert id", err)
 	}
 
 	// タグが指定されている場合、記事とタグの関連付けを保存
@@ -90,8 +109,17 @@ func (r *mysqlArticleRepository) Create(ctx context.Context, article *entity.Art
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		logger.Error("Failed to commit transaction",
+			zap.Error(err),
+			zap.Int64("article_id", articleID),
+		)
+		return nil, domainerrors.DatabaseError("commit transaction", err)
 	}
+
+	logger.Info("Successfully created article in database",
+		zap.Int64("id", articleID),
+		zap.String("title", article.Title),
+	)
 
 	return r.FindByID(ctx, articleID)
 }
@@ -99,18 +127,32 @@ func (r *mysqlArticleRepository) Create(ctx context.Context, article *entity.Art
 // 指定されたIDの記事を取得
 func (r *mysqlArticleRepository) FindByID(ctx context.Context, id int64) (*entity.Article, error) {
 	if id <= 0 {
-		return nil, errors.New("invalid id")
+		logger.Warn("Invalid article ID",
+			zap.Int64("id", id),
+		)
+		return nil, domainerrors.InvalidArgumentError("id", "id must be positive")
 	}
+
+	logger.Debug("Finding article by ID",
+		zap.Int64("id", id),
+	)
 
 	query := `SELECT id, title, url, summary, memo, created_at, updated_at FROM articles WHERE id = ?`
 
 	var row articleRow
 	err := r.db.GetContext(ctx, &row, query, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("article not found: id=%d", id)
+		if err == sql.ErrNoRows {
+			logger.Debug("Article not found",
+				zap.Int64("id", id),
+			)
+			return nil, domainerrors.NotFoundError("article", id)
 		}
-		return nil, fmt.Errorf("failed to find article: %w", err)
+		logger.Error("Failed to find article",
+			zap.Error(err),
+			zap.Int64("id", id),
+		)
+		return nil, domainerrors.DatabaseError("find article", err)
 	}
 
 	tags, err := r.findTagsByArticleID(ctx, id)
@@ -118,11 +160,18 @@ func (r *mysqlArticleRepository) FindByID(ctx context.Context, id int64) (*entit
 		return nil, fmt.Errorf("failed to find tags: %w", err)
 	}
 
+	logger.Debug("Successfully found article",
+		zap.Int64("id", id),
+		zap.String("title", row.Title),
+	)
+
 	return rowToEntity(&row, tags)
 }
 
 // 全ての記事を取得
 func (r *mysqlArticleRepository) FindAll(ctx context.Context) ([]*entity.Article, error) {
+	logger.Debug("Finding all articles")
+
 	query := `
 			SELECT
 				a.id,
@@ -142,7 +191,10 @@ func (r *mysqlArticleRepository) FindAll(ctx context.Context) ([]*entity.Article
 	var rows []articleWithTagRow
 	err := r.db.SelectContext(ctx, &rows, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find all articles: %w", err)
+		logger.Error("Failed to find all articles",
+			zap.Error(err),
+		)
+		return nil, domainerrors.DatabaseError("find all articles", err)
 	}
 
 	articleMap := make(map[int64]*entity.Article)
@@ -180,21 +232,38 @@ func (r *mysqlArticleRepository) FindAll(ctx context.Context) ([]*entity.Article
 		articles = append(articles, articleMap[id])
 	}
 
+	logger.Debug("Successfully found all articles",
+		zap.Int("count", len(articles)),
+	)
+
 	return articles, nil
 }
 
 // 記事を更新
 func (r *mysqlArticleRepository) Update(ctx context.Context, article *entity.Article) (*entity.Article, error) {
 	if article == nil {
-		return nil, errors.New("article is nil")
+		logger.Error("Attempted to update nil article")
+		return nil, domainerrors.InvalidArgumentError("article", "article cannot be nil")
 	}
 	if article.ID <= 0 {
-		return nil, errors.New("invalid article id")
+		logger.Warn("Invalid article ID for update",
+			zap.Int64("id", article.ID),
+		)
+		return nil, domainerrors.InvalidArgumentError("id", "id must be positive")
 	}
+
+	logger.Debug("Updating article in database",
+		zap.Int64("id", article.ID),
+		zap.String("title", article.Title),
+	)
 
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		logger.Error("Failed to begin transaction",
+			zap.Error(err),
+			zap.String("operation", "Update"),
+		)
+		return nil, domainerrors.DatabaseError("begin transaction", err)
 	}
 	defer func() {
 		if p := recover(); p != nil {
@@ -213,24 +282,38 @@ func (r *mysqlArticleRepository) Update(ctx context.Context, article *entity.Art
 	result, err := tx.ExecContext(ctx, query, article.Title, article.URL, article.Summary, memo, article.UpdatedAt, article.ID)
 	if err != nil {
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to update article: %w", err)
+		logger.Error("Failed to update article",
+			zap.Error(err),
+			zap.Int64("id", article.ID),
+		)
+		return nil, domainerrors.DatabaseError("update article", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to get rows affected: %w", err)
+		logger.Error("Failed to get rows affected",
+			zap.Error(err),
+		)
+		return nil, domainerrors.DatabaseError("get rows affected", err)
 	}
 	if rowsAffected == 0 {
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("article not found: id=%d", article.ID)
+		logger.Debug("Article not found for update",
+			zap.Int64("id", article.ID),
+		)
+		return nil, domainerrors.NotFoundError("article", article.ID)
 	}
 
 	deleteQuery := `DELETE FROM article_tags WHERE article_id = ?`
 	_, err = tx.ExecContext(ctx, deleteQuery, article.ID)
 	if err != nil {
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to delete article tags: %w", err)
+		logger.Error("Failed to delete article tags",
+			zap.Error(err),
+			zap.Int64("article_id", article.ID),
+		)
+		return nil, domainerrors.DatabaseError("delete article tags", err)
 	}
 
 	if len(article.Tags) > 0 {
@@ -241,8 +324,17 @@ func (r *mysqlArticleRepository) Update(ctx context.Context, article *entity.Art
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		logger.Error("Failed to commit transaction",
+			zap.Error(err),
+			zap.Int64("article_id", article.ID),
+		)
+		return nil, domainerrors.DatabaseError("commit transaction", err)
 	}
+
+	logger.Info("Successfully updated article in database",
+		zap.Int64("id", article.ID),
+		zap.String("title", article.Title),
+	)
 
 	return r.FindByID(ctx, article.ID)
 }
@@ -250,12 +342,23 @@ func (r *mysqlArticleRepository) Update(ctx context.Context, article *entity.Art
 // 指定されたIDの記事を削除
 func (r *mysqlArticleRepository) Delete(ctx context.Context, id int64) error {
 	if id <= 0 {
-		return errors.New("invalid id")
+		logger.Warn("Invalid article ID for deletion",
+			zap.Int64("id", id),
+		)
+		return domainerrors.InvalidArgumentError("id", "id must be positive")
 	}
+
+	logger.Debug("Deleting article from database",
+		zap.Int64("id", id),
+	)
 
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		logger.Error("Failed to begin transaction",
+			zap.Error(err),
+			zap.String("operation", "Delete"),
+		)
+		return domainerrors.DatabaseError("begin transaction", err)
 	}
 	defer func() {
 		if p := recover(); p != nil {
@@ -268,29 +371,51 @@ func (r *mysqlArticleRepository) Delete(ctx context.Context, id int64) error {
 	_, err = tx.ExecContext(ctx, deleteTagsQuery, id)
 	if err != nil {
 		_ = tx.Rollback()
-		return fmt.Errorf("failed to delete article: %w", err)
+		logger.Error("Failed to delete article tags",
+			zap.Error(err),
+			zap.Int64("article_id", id),
+		)
+		return domainerrors.DatabaseError("delete article tags", err)
 	}
 
 	deleteArticleQuery := `DELETE FROM articles WHERE id = ?`
 	result, err := tx.ExecContext(ctx, deleteArticleQuery, id)
 	if err != nil {
 		_ = tx.Rollback()
-		return fmt.Errorf("failed to delete article: %w", err)
+		logger.Error("Failed to delete article",
+			zap.Error(err),
+			zap.Int64("id", id),
+		)
+		return domainerrors.DatabaseError("delete article", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		_ = tx.Rollback()
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		logger.Error("Failed to get rows affected",
+			zap.Error(err),
+		)
+		return domainerrors.DatabaseError("get rows affected", err)
 	}
 	if rowsAffected == 0 {
 		_ = tx.Rollback()
-		return fmt.Errorf("article not found: id=%d", id)
+		logger.Debug("Article not found for deletion",
+			zap.Int64("id", id),
+		)
+		return domainerrors.NotFoundError("article", id)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		logger.Error("Failed to commit transaction",
+			zap.Error(err),
+			zap.Int64("article_id", id),
+		)
+		return domainerrors.DatabaseError("commit transaction", err)
 	}
+
+	logger.Info("Successfully deleted article from database",
+		zap.Int64("id", id),
+	)
 
 	return nil
 }
@@ -302,20 +427,35 @@ func (r *mysqlArticleRepository) insertArticleTags(ctx context.Context, tx *sqlx
 		query := `SELECT id FROM tags WHERE name = ?`
 		err := tx.GetContext(ctx, &tagID, query, tagName)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+			if err == sql.ErrNoRows {
 				// タグが存在しない場合は新規作成
 				insertTagQuery := `INSERT INTO tags (name, created_at, updated_at) VALUES (?, NOW(), NOW())`
 				result, err := tx.ExecContext(ctx, insertTagQuery, tagName)
 				if err != nil {
-					return fmt.Errorf("failed to create tag: %w", err)
+					logger.Error("Failed to create tag",
+						zap.Error(err),
+						zap.String("tag_name", tagName),
+					)
+					return domainerrors.DatabaseError("create tag", err)
 				}
 				newTagID, err := result.LastInsertId()
 				if err != nil {
-					return fmt.Errorf("failed to get new tag id: %w", err)
+					logger.Error("Failed to get new tag ID",
+						zap.Error(err),
+					)
+					return domainerrors.DatabaseError("get new tag id", err)
 				}
 				tagID = newTagID
+				logger.Debug("Created new tag",
+					zap.Int64("tag_id", tagID),
+					zap.String("tag_name", tagName),
+				)
 			} else {
-				return fmt.Errorf("failed to find tag: %w", err)
+				logger.Error("Failed to find tag",
+					zap.Error(err),
+					zap.String("tag_name", tagName),
+				)
+				return domainerrors.DatabaseError("find tag", err)
 			}
 		}
 
@@ -323,7 +463,12 @@ func (r *mysqlArticleRepository) insertArticleTags(ctx context.Context, tx *sqlx
 		insertQuery := `INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)`
 		_, err = tx.ExecContext(ctx, insertQuery, articleID, tagID)
 		if err != nil {
-			return fmt.Errorf("failed to insert article tag: %w", err)
+			logger.Error("Failed to insert article tag",
+				zap.Error(err),
+				zap.Int64("article_id", articleID),
+				zap.Int64("tag_id", tagID),
+			)
+			return domainerrors.DatabaseError("insert article tag", err)
 		}
 	}
 
@@ -342,7 +487,11 @@ func (r *mysqlArticleRepository) findTagsByArticleID(ctx context.Context, articl
 	var tags []string
 	err := r.db.SelectContext(ctx, &tags, query, articleID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to select tags: %w", err)
+		logger.Error("Failed to select tags",
+			zap.Error(err),
+			zap.Int64("article_id", articleID),
+		)
+		return nil, domainerrors.DatabaseError("select tags", err)
 	}
 	if tags == nil {
 		tags = []string{}
@@ -353,6 +502,10 @@ func (r *mysqlArticleRepository) findTagsByArticleID(ctx context.Context, articl
 
 // 曖昧検索機能
 func (r *mysqlArticleRepository) Search(ctx context.Context, keyword string) ([]*entity.Article, error) {
+	logger.Debug("Searching articles",
+		zap.String("keyword", keyword),
+	)
+
 	trimmedKeyword := strings.TrimSpace(keyword)
 	if trimmedKeyword == "" {
 		return r.FindAll(ctx)
@@ -391,7 +544,11 @@ func (r *mysqlArticleRepository) Search(ctx context.Context, keyword string) ([]
 	var rows []articleWithTagRow
 	err := r.db.SelectContext(ctx, &rows, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search articles: %w", err)
+		logger.Error("Failed to search articles",
+			zap.Error(err),
+			zap.String("keyword", trimmedKeyword),
+		)
+		return nil, domainerrors.DatabaseError("search articles", err)
 	}
 
 	articleMap := make(map[int64]*entity.Article)
@@ -428,6 +585,11 @@ func (r *mysqlArticleRepository) Search(ctx context.Context, keyword string) ([]
 	for _, id := range articleOrder {
 		articles = append(articles, articleMap[id])
 	}
+
+	logger.Info("Successfully searched articles",
+		zap.String("keyword", trimmedKeyword),
+		zap.Int("count", len(articles)),
+	)
 
 	return articles, nil
 }
