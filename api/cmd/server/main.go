@@ -14,12 +14,22 @@ import (
 
 	"article-manager/internal/infrastructure/ai"
 	"article-manager/internal/infrastructure/database"
+	applogger "article-manager/internal/infrastructure/logger"
 	"article-manager/internal/infrastructure/repository"
 	"article-manager/internal/interface/handler"
 	"article-manager/internal/usecase"
 )
 
 func main() {
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = "development"
+	}
+	if err := applogger.InitLogger(env); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer applogger.Sync()
+
 	logger := log.New(os.Stdout, "[article-manager] ", log.LstdFlags|log.Lshortfile)
 
 	// データベース接続

@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ToastProvider } from "@/contexts/ToastContext";
+import { ToastContainer } from "@/components/Toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,15 +32,21 @@ export default function RootLayout({
       {/* lang="ja": 日本語ページであることを宣言 */}
 
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Header />
+        <ErrorBoundary>
+          <ToastProvider>
+            <Header />
 
-        <div className="flex">
-          <Sidebar />
+            <div className="flex">
+              <Sidebar />
 
-          <main className="flex-1 p-8 bg-gradient-to-br from-slate-50 via-white to-slate-50 min-h-screen">
-            {children}
-          </main>
-        </div>
+              <main className="flex-1 p-8 bg-gradient-to-br from-slate-50 via-white to-slate-50 min-h-screen">
+                {children}
+              </main>
+            </div>
+
+            <ToastContainer />
+          </ToastProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

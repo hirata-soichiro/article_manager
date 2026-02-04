@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react'
 import { articleClient } from  '@/lib/api/articleClient'
 import type { Article } from '@/types/article'
+import { ApiError } from '@/lib/errors/ApiError'
 
 // カスタムフックの戻り値の型定義
 interface UseArticleSearchReturn {
     results: Article[]
     loading: boolean
-    error: Error | null
+    error: ApiError | Error | null
     keyword: string
     search: (keyword: string) => Promise<void>
     clearSearch: () => void
@@ -16,7 +17,7 @@ interface UseArticleSearchReturn {
 export function useArticleSearch(): UseArticleSearchReturn {
     const [results, setResults] = useState<Article[]>([])
     const [loading, setLoading] = useState<boolean>(false)
-    const [error, setError] = useState<Error | null>(null)
+    const [error, setError] = useState<ApiError | Error | null>(null)
     const [keyword, setKeyword] = useState<string>('')
 
     // 記事を検索
@@ -28,7 +29,11 @@ export function useArticleSearch(): UseArticleSearchReturn {
             const data = await articleClient.searchArticles(searchKeyword)
             setResults(data)
         } catch (err) {
-            setError(err as Error)
+            if (err instanceof ApiError) {
+                setError(err)
+            } else {
+                setError(err as Error)
+            }
             setResults([])
         } finally {
             setLoading(false)
