@@ -421,54 +421,106 @@ func (r *mysqlArticleRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *mysqlArticleRepository) insertArticleTags(ctx context.Context, tx *sqlx.Tx, articleID int64, tagNames []string) error {
+	if len(tagNames) == 0 {
+		return nil
+	}
+
+	// 既存タグを一括取得
+	query, args, err := sqlx.In(`SELECT id, name FORM tags WHERE name IN (?)`, tagNames)
+	if err != nil {
+		return domainerrors.DatabaseError("prepare tag query", err)
+	}
+	query = tx.Rebind(query)
+
+	type tagResult struct {
+		ID   int64  `db:"id"`
+		Name string `db:"name"`
+	}
+	var existingTags []tagResult
+	err = tx.SelectContext(ctx, &existingTags, query, args...)
+	if err != nil {
+		logger.Error("Failed to fetch existing tags",
+			zap.Error(err),
+		)
+		return domainerrors.DatabaseError("fetch existing tags", err)
+	}
+
+	// タグ名からIDへのマッピングを作成
+	tagIDMap := make(map[string]int64, len(existingTags))
+	for _, tag := range existingTags {
+		tagIDMap[tag.Name] = tag.ID
+	}
+
+	// 存在しないタグを抽出して一括作成
+	var missingTags []string
 	for _, tagName := range tagNames {
-		// タグ名からタグIDを取得
-		var tagID int64
-		query := `SELECT id FROM tags WHERE name = ?`
-		err := tx.GetContext(ctx, &tagID, query, tagName)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				// タグが存在しない場合は新規作成
-				insertTagQuery := `INSERT INTO tags (name, created_at, updated_at) VALUES (?, NOW(), NOW())`
-				result, err := tx.ExecContext(ctx, insertTagQuery, tagName)
-				if err != nil {
-					logger.Error("Failed to create tag",
-						zap.Error(err),
-						zap.String("tag_name", tagName),
-					)
-					return domainerrors.DatabaseError("create tag", err)
-				}
-				newTagID, err := result.LastInsertId()
-				if err != nil {
-					logger.Error("Failed to get new tag ID",
-						zap.Error(err),
-					)
-					return domainerrors.DatabaseError("get new tag id", err)
-				}
-				tagID = newTagID
-				logger.Debug("Created new tag",
-					zap.Int64("tag_id", tagID),
-					zap.String("tag_name", tagName),
-				)
-			} else {
-				logger.Error("Failed to find tag",
-					zap.Error(err),
-					zap.String("tag_name", tagName),
-				)
-				return domainerrors.DatabaseError("find tag", err)
-			}
+		if _, exists := tagIDMap[tagName]; !exists {
+			missingTags = append(missingTags, tagName)
+		}
+	}
+
+	if len(missingTags) > 0 {
+		valueStrings := make([]string, 0, len(missingTags))
+		valueArgs := make([]interface{}, 0, len(missingTags))
+		now := "NOW()"
+
+		for _, tagName := range missingTags {
+			valueStrings = append(valueStrings, "(?, "+now+", "+now+")")
+			valueArgs = append(valueArgs, tagName)
 		}
 
-		// article_tagsテーブルに関連付けを保存
-		insertQuery := `INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, insertQuery, articleID, tagID)
+		buldInsertQuery := fmt.Sprintf(
+			"INSERT INTO tags (name, created_at, updated_at) VALUES %s",
+			strings.Join(valueStrings, ","),
+		)
+
+		result, err := tx.ExecContext(ctx, buldInsertQuery, valueArgs...)
 		if err != nil {
-			logger.Error("Failed to insert article tag",
+			logger.Error("Failed to bulk insert tags",
+				zap.Error(err),
+			)
+			return domainerrors.DatabaseError("insert new tags", err)
+		}
+
+		// 新規作成されたタグのIDを取得
+		lastID, err := result.LastInsertId()
+		if err != nil {
+			return domainerrors.DatabaseError("get last insert id", err)
+		}
+
+		// 新規タグのIDをマッピングに追加
+		for i, tagName := range missingTags {
+			tagIDMap[tagName] = lastID + int64(i)
+		}
+
+		logger.Debug("Inserted new tags",
+			zap.Int("count", len(missingTags)),
+		)
+	}
+
+	// article_tagsテーブルに一括挿入
+	if len(tagNames) > 0 {
+		valueStrings := make([]string, 0, len(tagNames))
+		valueArgs := make([]interface{}, 0, len(tagNames)*2)
+
+		for _, tagName := range tagNames {
+			tagID := tagIDMap[tagName]
+			valueStrings = append(valueStrings, "(?, ?)")
+			valueArgs = append(valueArgs, articleID, tagID)
+		}
+
+		buldInsertQuery := fmt.Sprintf(
+			"INSERT INTO article_tags (article_id, tag_id) VALUES %s",
+			strings.Join(valueStrings, ","),
+		)
+
+		_, err = tx.ExecContext(ctx, buldInsertQuery, valueArgs...)
+		if err != nil {
+			logger.Error("Failed to bulk insert article tags",
 				zap.Error(err),
 				zap.Int64("article_id", articleID),
-				zap.Int64("tag_id", tagID),
 			)
-			return domainerrors.DatabaseError("insert article tag", err)
+			return domainerrors.DatabaseError("bulk insert article tags", err)
 		}
 	}
 
@@ -513,16 +565,18 @@ func (r *mysqlArticleRepository) Search(ctx context.Context, keyword string) ([]
 
 	keywords := strings.Fields(trimmedKeyword)
 
-	var conditions []string
+	// FULLTEXTインデックスを活用した検索（ngramパーサー使用）
+	var matchConditions []string
 	var args []interface{}
 
+	// MATCH AGAINST構文を使用（FULLTEXTインデックスを活用）
 	for _, kw := range keywords {
-		conditions = append(conditions, "(a.title LIKE ? OR a.summary LIKE ?)")
-		likePattern := "%" + kw + "%"
-		args = append(args, likePattern, likePattern)
+		matchConditions = append(matchConditions, "MATCH(a.title, a.summary) AGAINST(? IN BOOLEAN MODE)")
+		// BOOLEAN MODEで部分一致検索を可能にする
+		args = append(args, "*"+kw+"*")
 	}
 
-	whereClause := strings.Join(conditions, " AND ")
+	whereClause := strings.Join(matchConditions, " AND ")
 
 	query := fmt.Sprintf(`
 		SELECT
