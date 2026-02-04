@@ -1,4 +1,5 @@
 import { Article, CreateArticleInput, UpdateArticleInput } from '@/types/article'
+import { ApiError } from '@/lib/errors/ApiError'
 
 // APIから返却される記事データの型
 interface ApiArticle {
@@ -17,145 +18,146 @@ const API_BASE_URL = 'http://localhost:8080'
 
 // バックエンドのAPIと通信するクライアント
 class ArticleClient {
-    // 全記事を取得
-    async getAll(): Promise<Article[]> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/articles`)
+    private async handleResponse<T>(
+        response: Response,
+        endpoint: string,
+        method: string
+    ): Promise<T> {
+        if (!response.ok) {
+            let errorMessage = 'An error occurred'
+            let errorDetails: unknown
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch articles')
+            try {
+                const errorData = await response.json()
+                errorMessage = errorData.error || errorData.message || errorMessage
+                errorDetails = errorData
+            } catch {
+                errorMessage = response.statusText || errorMessage
             }
 
-            const data: ApiArticle[] = await response.json()
-            return data.map(this.convertToCamelCase)
-        } catch (error) {
-            throw error
+            throw new ApiError(
+                errorMessage,
+                response.status,
+                endpoint,
+                method,
+                errorDetails
+            )
         }
+
+        try {
+            return await response.json()
+        } catch (error) {
+            throw new ApiError(
+                'Failed to parse response',
+                response.status,
+                endpoint,
+                method,
+                error
+            )
+        }
+    }
+
+    private async fetchWithErrorHandling<T>(
+        endpoint: string,
+        options?: RequestInit
+    ): Promise<T> {
+        const url = `${API_BASE_URL}${endpoint}`
+        const method = options?.method || 'GET'
+
+        try {
+            const response = await fetch(url, options)
+            return await this.handleResponse<T>(response, endpoint, method)
+        } catch (error) {
+            if (error instanceof ApiError) {
+                throw error
+            }
+
+            if (error instanceof TypeError && error.message.includes('fetch')) {
+                throw new ApiError(
+                    'ネットワークエラーが発生しました。接続を確認してください',
+                    0,
+                    endpoint,
+                    method,
+                    error
+                )
+            }
+
+            throw new ApiError(
+                error instanceof Error ? error.message : 'Unknown error occurred',
+                0,
+                endpoint,
+                method,
+                error
+            )
+        }
+    }
+    // 全記事を取得
+    async getAll(): Promise<Article[]> {
+        const data = await this.fetchWithErrorHandling<ApiArticle[]>('/api/articles')
+        return data.map(this.convertToCamelCase)
     }
 
     // 指定IDの記事を取得
     async getById(id: number): Promise<Article> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/articles/${id}`)
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to fetch article')
-            }
-
-            const data: ApiArticle = await response.json()
-            return this.convertToCamelCase(data)
-        } catch (error) {
-            throw error
-        }
+        const data = await this.fetchWithErrorHandling<ApiArticle>(`/api/articles/${id}`)
+        return this.convertToCamelCase(data)
     }
 
     // 記事を作成
     async create(article: CreateArticleInput): Promise<Article> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/articles`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(article),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to create article')
-            }
-
-            const data: ApiArticle = await response.json()
-            return this.convertToCamelCase(data)
-        } catch (error) {
-            throw error
-        }
+        const data = await this.fetchWithErrorHandling<ApiArticle>('/api/articles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(article),
+        })
+        return this.convertToCamelCase(data)
     }
 
     // 記事を更新
     async update(id: number, article: UpdateArticleInput): Promise<Article> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/articles/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(article),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to update article')
-            }
-
-            const data: ApiArticle = await response.json()
-            return this.convertToCamelCase(data)
-        } catch (error) {
-            throw error
-        }
+        const data = await this.fetchWithErrorHandling<ApiArticle>(`/api/articles/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(article),
+        })
+        return this.convertToCamelCase(data)
     }
 
     // 記事を削除
     async delete(id: number): Promise<void> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/articles/${id}`, {
-                method: 'DELETE',
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to delete article')
-            }
-        } catch (error) {
-            throw error
-        }
+        await this.fetchWithErrorHandling<void>(`/api/articles/${id}`, {
+            method: 'DELETE',
+        })
     }
 
     // キーワードで記事を検索
     async searchArticles(keyword: string): Promise<Article[]> {
-        try {
-            const encodedKeyword = encodeURIComponent(keyword)
-            const response = await fetch(`${API_BASE_URL}/api/articles/search?keyword=${encodedKeyword}`)
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to search articles')
-            }
-
-            const data: ApiArticle[] = await response.json()
-            return data.map(this.convertToCamelCase)
-        } catch (error) {
-            throw error
-        }
+        const encodedKeyword = encodeURIComponent(keyword)
+        const data = await this.fetchWithErrorHandling<ApiArticle[]>(
+            `/api/articles/search?keyword=${encodedKeyword}`
+        )
+        return data.map(this.convertToCamelCase)
     }
 
     // URLから記事を自動生成
     async generate(url: string, memo?: string): Promise<Article> {
-        try {
-            const requestBody: { url: string; memo?: string } = { url }
-            if (memo !== undefined) {
-                requestBody.memo = memo
-            }
-
-            const response = await fetch(`${API_BASE_URL}/api/articles/generate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to generate article')
-            }
-
-            const data: ApiArticle = await response.json()
-            return this.convertToCamelCase(data)
-        } catch (error) {
-            throw error
+        const requestBody: { url: string; memo?: string } = { url }
+        if (memo !== undefined) {
+            requestBody.memo = memo
         }
+
+        const data = await this.fetchWithErrorHandling<ApiArticle>('/api/articles/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        })
+        return this.convertToCamelCase(data)
     }
 
     // APIレスポンスをフロントエンド用に変換

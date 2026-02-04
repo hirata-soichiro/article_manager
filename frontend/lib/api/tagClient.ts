@@ -1,4 +1,5 @@
 import { Tag, CreateTagInput, UpdateTagInput } from '@/types/tag'
+import { ApiError } from '@/lib/errors/ApiError'
 
 // APIから返却される記事データの型
 interface ApiTag {
@@ -13,99 +14,120 @@ const API_BASE_URL = 'http://localhost:8080'
 
 // バックエンドのAPIと通信するクライアント
 class TagClient {
-    // 全タグを取得
-    async getAll(): Promise<Tag[]> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/tags`)
+    private async handleResponse<T>(
+        response: Response,
+        endpoint: string,
+        method: string
+    ): Promise<T> {
+        if (!response.ok) {
+            let errorMessage = 'An error occurred'
+            let errorDetails: unknown
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch tags')
+            try {
+                const errorData = await response.json()
+                errorMessage = errorData.error || errorData.message || errorMessage
+                errorDetails = errorData
+            } catch {
+                errorMessage = response.statusText || errorMessage
             }
 
-            const data: ApiTag[] = await response.json()
-            return data.map(this.convertToCamelCase)
-        } catch (error) {
-            throw error
+            throw new ApiError(
+                errorMessage,
+                response.status,
+                endpoint,
+                method,
+                errorDetails
+            )
         }
+
+        try {
+            return await response.json()
+        } catch (error) {
+            throw new ApiError(
+                'Failed to parse response',
+                response.status,
+                endpoint,
+                method,
+                error
+            )
+        }
+    }
+
+    private async fetchWithErrorHandling<T>(
+        endpoint: string,
+        options?: RequestInit
+    ): Promise<T> {
+        const url = `${API_BASE_URL}${endpoint}`
+        const method = options?.method || 'GET'
+
+        try {
+            const response = await fetch(url, options)
+            return await this.handleResponse<T>(response, endpoint, method)
+        } catch (error) {
+            if (error instanceof ApiError) {
+                throw error
+            }
+
+            if (error instanceof TypeError && error.message.includes('fetch')) {
+                throw new ApiError(
+                    'ネットワークエラーが発生しました。接続を確認してください',
+                    0,
+                    endpoint,
+                    method,
+                    error
+                )
+            }
+
+            throw new ApiError(
+                error instanceof Error ? error.message : 'Unknown error occurred',
+                0,
+                endpoint,
+                method,
+                error
+            )
+        }
+    }
+    // 全タグを取得
+    async getAll(): Promise<Tag[]> {
+        const data = await this.fetchWithErrorHandling<ApiTag[]>('/api/tags')
+        return data.map(this.convertToCamelCase)
     }
 
     // 指定IDのタグを取得
     async getById(id: number): Promise<Tag> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/tags/${id}`)
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to fetch tag')
-            }
-
-            const data: ApiTag = await response.json()
-            return this.convertToCamelCase(data)
-        } catch (error) {
-            throw error
-        }
+        const data = await this.fetchWithErrorHandling<ApiTag>(`/api/tags/${id}`)
+        return this.convertToCamelCase(data)
     }
 
     // タグを作成
     async create(tag: CreateTagInput): Promise<Tag> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/tags`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(tag),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to create tag')
-            }
-
-            const data: ApiTag = await response.json()
-            return this.convertToCamelCase(data)
-        } catch (error) {
-            throw error
-        }
+        const data = await this.fetchWithErrorHandling<ApiTag>('/api/tags', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(tag),
+        })
+        return this.convertToCamelCase(data)
     }
 
     // タグを更新
     async update(id: number, tag: UpdateTagInput): Promise<Tag> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/tags/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(tag),
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to update tag')
-            }
-
-            const data: ApiTag = await response.json()
-            return this.convertToCamelCase(data)
-        } catch (error) {
-            throw error
-        }
+        const data = await this.fetchWithErrorHandling<ApiTag>(`/api/tags/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(tag),
+        })
+        return this.convertToCamelCase(data)
     }
 
     // タグを削除
     async delete(id: number): Promise<void> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/tags/${id}`, {
-                method: 'DELETE',
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to delete tag')
-            }
-        } catch (error) {
-            throw error
-        }
+        await this.fetchWithErrorHandling<void>(`/api/tags/${id}`, {
+            method: 'DELETE',
+        })
     }
 
     // APIレスポンスをフロントエンド用に変換

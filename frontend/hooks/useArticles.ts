@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { articleClient } from '@/lib/api/articleClient'
 import type { Article, CreateArticleInput, UpdateArticleInput } from '@/types/article'
+import { ApiError } from '@/lib/errors/ApiError'
 
 // カスタムフックの戻り値の型定義
 interface UseArticlesReturn {
     articles: Article[]
     loading: boolean
-    error: Error | null
+    error: ApiError | Error | null
     createArticle: (input: CreateArticleInput) => Promise<void>
     updateArticle: (id: number, input: UpdateArticleInput) => Promise<void>
     deleteArticle: (id: number) => Promise<void>
@@ -18,7 +19,7 @@ export function useArticles(): UseArticlesReturn {
     // 状態管理
     const [articles, setArticles] = useState<Article[]>([])
     const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<Error | null>(null)
+    const [error, setError] = useState<ApiError | Error | null>(null)
 
     // 記事一覧を取得
     const fetchArticles = useCallback(async () => {
@@ -28,7 +29,11 @@ export function useArticles(): UseArticlesReturn {
             const data = await articleClient.getAll()
             setArticles(data)
         } catch (err) {
-            setError(err as Error)
+            if (err instanceof ApiError) {
+                setError(err)
+            } else {
+                setError(err as Error)
+            }
         } finally {
             setLoading(false)
         }
@@ -46,7 +51,11 @@ export function useArticles(): UseArticlesReturn {
             const newArticle = await articleClient.create(input)
             setArticles((prev) => [...prev, newArticle])
         } catch (err) {
-            setError(err as Error)
+            if (err instanceof ApiError) {
+                setError(err)
+            } else {
+                setError(err as Error)
+            }
             throw err
         }
     }, [])
@@ -60,7 +69,11 @@ export function useArticles(): UseArticlesReturn {
                 prev.map((article) => (article.id === id ? updatedArticle : article))
             )
         } catch (err) {
-            setError(err as Error)
+            if (err instanceof ApiError) {
+                setError(err)
+            } else {
+                setError(err as Error)
+            }
             throw err
         }
     }, [])
@@ -72,7 +85,11 @@ export function useArticles(): UseArticlesReturn {
             await articleClient.delete(id)
             setArticles((prev) => prev.filter((article) => article.id !== id))
         } catch (err) {
-            setError(err as Error)
+            if (err instanceof ApiError) {
+                setError(err)
+            } else {
+                setError(err as Error)
+            }
             throw err
         }
      }, [])
