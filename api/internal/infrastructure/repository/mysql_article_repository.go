@@ -426,7 +426,7 @@ func (r *mysqlArticleRepository) insertArticleTags(ctx context.Context, tx *sqlx
 	}
 
 	// 既存タグを一括取得
-	query, args, err := sqlx.In(`SELECT id, name FORM tags WHERE name IN (?)`, tagNames)
+	query, args, err := sqlx.In(`SELECT id, name FROM tags WHERE name IN (?)`, tagNames)
 	if err != nil {
 		return domainerrors.DatabaseError("prepare tag query", err)
 	}
