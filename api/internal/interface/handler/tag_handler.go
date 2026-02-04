@@ -3,11 +3,11 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"article-manager/internal/domain/entity"
 	domainerrors "article-manager/internal/domain/errors"
 	"article-manager/internal/infrastructure/logger"
+	"article-manager/internal/infrastructure/timeutil"
 	"article-manager/internal/usecase"
 
 	"go.uber.org/zap"
@@ -183,13 +183,10 @@ func (h *TagHandler) DeleteTag(w http.ResponseWriter, r *http.Request, id int64)
 
 // エンティティをレスポンス形式に変換する
 func toTagResponse(tag *entity.Tag) TagResponse {
-	// JSTに変換
-	jst, _ := time.LoadLocation("Asia/Tokyo")
-
 	return TagResponse{
 		ID:        tag.ID,
 		Name:      tag.Name,
-		CreatedAt: tag.CreatedAt.In(jst).Format("2006-01-02 15:04:05"),
-		UpdatedAt: tag.UpdatedAt.In(jst).Format("2006-01-02 15:04:05"),
+		CreatedAt: timeutil.MustFormatInJST(tag.CreatedAt),
+		UpdatedAt: timeutil.MustFormatInJST(tag.UpdatedAt),
 	}
 }

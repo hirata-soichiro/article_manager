@@ -3,11 +3,11 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"article-manager/internal/domain/entity"
 	domainerrors "article-manager/internal/domain/errors"
 	"article-manager/internal/infrastructure/logger"
+	"article-manager/internal/infrastructure/timeutil"
 	"article-manager/internal/usecase"
 
 	"go.uber.org/zap"
@@ -67,9 +67,6 @@ func (h *ArticleGeneratorHandler) GenerateArticle(w http.ResponseWriter, r *http
 
 // エンティティをレスポンス形式に変換する
 func (h *ArticleGeneratorHandler) toArticleResponse(article *entity.Article) ArticleResponse {
-	// JSTに変換
-	jst, _ := time.LoadLocation("Asia/Tokyo")
-
 	return ArticleResponse{
 		ID:        article.ID,
 		Title:     article.Title,
@@ -77,7 +74,7 @@ func (h *ArticleGeneratorHandler) toArticleResponse(article *entity.Article) Art
 		Summary:   article.Summary,
 		Tags:      article.Tags,
 		Memo:      article.Memo,
-		CreatedAt: article.CreatedAt.In(jst).Format("2006-01-02 15:04:05"),
-		UpdatedAt: article.UpdatedAt.In(jst).Format("2006-01-02 15:04:05"),
+		CreatedAt: timeutil.MustFormatInJST(article.CreatedAt),
+		UpdatedAt: timeutil.MustFormatInJST(article.UpdatedAt),
 	}
 }

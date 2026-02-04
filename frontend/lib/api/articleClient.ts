@@ -1,5 +1,5 @@
 import { Article, CreateArticleInput, UpdateArticleInput } from '@/types/article'
-import { ApiError } from '@/lib/errors/ApiError'
+import { BaseApiClient } from './baseClient'
 
 // APIから返却される記事データの型
 interface ApiArticle {
@@ -13,84 +13,8 @@ interface ApiArticle {
     updated_at: string
 }
 
-// APIのベースURL
-const API_BASE_URL = 'http://localhost:8080'
-
 // バックエンドのAPIと通信するクライアント
-class ArticleClient {
-    private async handleResponse<T>(
-        response: Response,
-        endpoint: string,
-        method: string
-    ): Promise<T> {
-        if (!response.ok) {
-            let errorMessage = 'An error occurred'
-            let errorDetails: unknown
-
-            try {
-                const errorData = await response.json()
-                errorMessage = errorData.error || errorData.message || errorMessage
-                errorDetails = errorData
-            } catch {
-                errorMessage = response.statusText || errorMessage
-            }
-
-            throw new ApiError(
-                errorMessage,
-                response.status,
-                endpoint,
-                method,
-                errorDetails
-            )
-        }
-
-        try {
-            return await response.json()
-        } catch (error) {
-            throw new ApiError(
-                'Failed to parse response',
-                response.status,
-                endpoint,
-                method,
-                error
-            )
-        }
-    }
-
-    private async fetchWithErrorHandling<T>(
-        endpoint: string,
-        options?: RequestInit
-    ): Promise<T> {
-        const url = `${API_BASE_URL}${endpoint}`
-        const method = options?.method || 'GET'
-
-        try {
-            const response = await fetch(url, options)
-            return await this.handleResponse<T>(response, endpoint, method)
-        } catch (error) {
-            if (error instanceof ApiError) {
-                throw error
-            }
-
-            if (error instanceof TypeError && error.message.includes('fetch')) {
-                throw new ApiError(
-                    'ネットワークエラーが発生しました。接続を確認してください',
-                    0,
-                    endpoint,
-                    method,
-                    error
-                )
-            }
-
-            throw new ApiError(
-                error instanceof Error ? error.message : 'Unknown error occurred',
-                0,
-                endpoint,
-                method,
-                error
-            )
-        }
-    }
+class ArticleClient extends BaseApiClient {
     // 全記事を取得
     async getAll(): Promise<Article[]> {
         const data = await this.fetchWithErrorHandling<ApiArticle[]>('/api/articles')

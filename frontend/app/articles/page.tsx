@@ -7,6 +7,7 @@ import { useTags } from '@/hooks/useTags'
 import ArticleCard from '@/components/ArticleCard'
 import SearchBar from '@/components/SearchBar'
 import dynamic from 'next/dynamic'
+import { UI_CONSTANTS } from '@/config/constants'
 
 // 削除確認ダイアログを動的インポート（使用時のみロード）
 const DeleteConfirmDialog = dynamic(() => import('@/components/DeleteConfirmDialog'), {
@@ -30,7 +31,7 @@ export default function ArticlesPage() {
     const [isDeleting, setIsDeleting] = useState(false)
     // ページネーションの状態
     const [currentPage, setCurrentPage] = useState(1)
-    const [pageSize, setPageSize] = useState(10)
+    const [pageSize, setPageSize] = useState(UI_CONSTANTS.ARTICLES_PER_PAGE)
 
     // メモ化: 検索中かどうか
     const isSearching = useMemo(() => keyword.trim().length > 0, [keyword])
@@ -89,11 +90,11 @@ export default function ArticlesPage() {
 
     // メモ化: 表示するタグ
     const displayTags = useMemo(
-        () => (showAllTags ? tagsWithCount : tagsWithCount.slice(0, 8)),
+        () => (showAllTags ? tagsWithCount : tagsWithCount.slice(0, UI_CONSTANTS.TAG_DISPLAY_LIMIT)),
         [showAllTags, tagsWithCount]
     )
 
-    const hasMoreTags = tagsWithCount.length > 8
+    const hasMoreTags = tagsWithCount.length > UI_CONSTANTS.TAG_DISPLAY_LIMIT
 
     // useCallback: ページサイズ変更
     const handlePageSizeChange = useCallback((newPageSize: number) => {
@@ -327,7 +328,7 @@ export default function ArticlesPage() {
                                     </span>
                                 ) : (
                                     <span className="flex items-center gap-1">
-                                        <span>もっと見る (+{tagsWithCount.length - 8})</span>
+                                        <span>もっと見る (+{tagsWithCount.length - UI_CONSTANTS.TAG_DISPLAY_LIMIT})</span>
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
@@ -354,7 +355,7 @@ export default function ArticlesPage() {
                             onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         >
-                            <option value={10}>10件</option>
+                            <option value={UI_CONSTANTS.ARTICLES_PER_PAGE}>{UI_CONSTANTS.ARTICLES_PER_PAGE}件</option>
                             <option value={25}>25件</option>
                             <option value={50}>50件</option>
                             <option value={100}>100件</option>

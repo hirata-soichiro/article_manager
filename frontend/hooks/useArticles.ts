@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { articleClient } from '@/lib/api/articleClient'
 import type { Article, CreateArticleInput, UpdateArticleInput } from '@/types/article'
 import { ApiError } from '@/lib/errors/ApiError'
+import { CACHE_CONSTANTS } from '@/config/constants'
 
 // カスタムフックの戻り値の型定義
 interface UseArticlesReturn {
@@ -18,7 +19,7 @@ interface UseArticlesReturn {
 const articlesCache = {
     data: null as Article[] | null,
     timestamp: 0,
-    ttl: 60 * 1000, // 60秒
+    ttl: CACHE_CONSTANTS.CACHE_TTL,
 }
 
 // 記事管理用カスタムフック(記事一覧、作成、更新、削除)

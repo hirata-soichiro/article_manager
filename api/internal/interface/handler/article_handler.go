@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	"article-manager/internal/domain/entity"
 	domainerrors "article-manager/internal/domain/errors"
 	"article-manager/internal/infrastructure/logger"
+	"article-manager/internal/infrastructure/timeutil"
 	"article-manager/internal/usecase"
 
 	"go.uber.org/zap"
@@ -234,9 +234,6 @@ func (h *ArticleHandler) SearchArticles(w http.ResponseWriter, r *http.Request) 
 
 // エンティティをレスポンス形式に変換する
 func toArticleResponse(article *entity.Article) ArticleResponse {
-	// JSTに変換
-	jst, _ := time.LoadLocation("Asia/Tokyo")
-
 	return ArticleResponse{
 		ID:        article.ID,
 		Title:     article.Title,
@@ -244,7 +241,7 @@ func toArticleResponse(article *entity.Article) ArticleResponse {
 		Summary:   article.Summary,
 		Tags:      article.Tags,
 		Memo:      article.Memo,
-		CreatedAt: article.CreatedAt.In(jst).Format("2006-01-02 15:04:05"),
-		UpdatedAt: article.UpdatedAt.In(jst).Format("2006-01-02 15:04:05"),
+		CreatedAt: timeutil.MustFormatInJST(article.CreatedAt),
+		UpdatedAt: timeutil.MustFormatInJST(article.UpdatedAt),
 	}
 }
