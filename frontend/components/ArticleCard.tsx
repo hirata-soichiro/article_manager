@@ -4,23 +4,44 @@ import { Article } from '@/types/article'
 import TagList from './TagList'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { memo, useCallback } from 'react'
 
 interface ArticleCardProps {
     article: Article
     onDelete?: (id: number) => void
 }
 
-export default function ArticleCard({ article, onDelete }: ArticleCardProps) {
+// React.memoでpropsが変わらない限り再レンダリングを防ぐ
+const ArticleCard = memo(function ArticleCard({ article, onDelete }: ArticleCardProps) {
     const router = useRouter()
 
-    const handleCardClick = () => {
+    // useCallbackでハンドラをメモ化
+    const handleCardClick = useCallback(() => {
         router.push(`/articles/${article.id}`)
-    }
+    }, [router, article.id])
+
+    const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (onDelete) {
+            onDelete(article.id)
+        }
+    }, [article.id, onDelete])
+
+    const handleEditClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation()
+    }, [])
+
+    const handleLinkClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation()
+    }, [])
 
     return (
-        <div
+        <article
             onClick={handleCardClick}
             className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 relative cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-label={`記事: ${article.title}`}
         >
             <h3 className="text-xl font-bold text-gray-800 mb-2">
                 {article.title}
@@ -30,7 +51,7 @@ export default function ArticleCard({ article, onDelete }: ArticleCardProps) {
                 href={article.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
+                onClick={handleLinkClick}
                 className="text-blue-600 hover:underline text-sm mb-2 block break-all"
             >
                 {article.url}
@@ -45,7 +66,7 @@ export default function ArticleCard({ article, onDelete }: ArticleCardProps) {
             </div>
 
             {article.memo && (
-                <p className="text-gray-500 text-sm italic mb-2">
+                <p className="text-gray-500 text-sm italic mb-2 line-clamp-1">
                     メモ： {article.memo}
                 </p>
             )}
@@ -55,7 +76,7 @@ export default function ArticleCard({ article, onDelete }: ArticleCardProps) {
                 {/* 編集ボタン */}
                 <Link
                     href={`/articles/${article.id}/edit`}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={handleEditClick}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                     aria-label="記事を編集"
                 >
@@ -67,10 +88,7 @@ export default function ArticleCard({ article, onDelete }: ArticleCardProps) {
                 {/* 削除ボタン */}
                 {onDelete && (
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            onDelete(article.id)
-                        }}
+                        onClick={handleDeleteClick}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                         aria-label="記事を削除"
                     >
@@ -80,6 +98,8 @@ export default function ArticleCard({ article, onDelete }: ArticleCardProps) {
                     </button>
                 )}
             </div>
-        </div>
+        </article>
     )
-}
+})
+
+export default ArticleCard

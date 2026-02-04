@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useArticles } from '@/hooks/useArticles'
 import { useArticleSearch } from '@/hooks/useArticleSearch'
 import { useTags } from '@/hooks/useTags'
 import ArticleCard from '@/components/ArticleCard'
 import SearchBar from '@/components/SearchBar'
-import DeleteConfirmDialog from '@/components/DeleteConfirmDialog'
-import { Article } from '@/types/article'
+import dynamic from 'next/dynamic'
+
+// 削除確認ダイアログを動的インポート（使用時のみロード）
+const DeleteConfirmDialog = dynamic(() => import('@/components/DeleteConfirmDialog'), {
+    ssr: false, // クライアントサイドのみ
+})
 
 export default function ArticlesPage() {
     // 記事一覧フック
@@ -27,45 +31,85 @@ export default function ArticlesPage() {
     // ページネーションの状態
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
-    // 検索中かどうかの判定
-    const isSearching = keyword.trim().length > 0
-    // 表示する記事リストを決定
-    const displayArticles = isSearching ? searchResults : articles
-    // ローディング状態を統合
-    const loading = isSearching ? searchLoading : (articlesLoading || tagsLoading)
-    // エラー状態を統合
-    const error = isSearching ? searchError : articlesError
 
-    // 選択されたタグに基づいて記事をフィルタリング
+    // メモ化: 検索中かどうか
+    const isSearching = useMemo(() => keyword.trim().length > 0, [keyword])
+
+    // メモ化: 表示する記事リスト
+    const displayArticles = useMemo(
+        () => (isSearching ? searchResults : articles),
+        [isSearching, searchResults, articles]
+    )
+
+    // メモ化: ローディング状態
+    const loading = useMemo(
+        () => (isSearching ? searchLoading : (articlesLoading || tagsLoading)),
+        [isSearching, searchLoading, articlesLoading, tagsLoading]
+    )
+
+    // メモ化: エラー状態
+    const error = useMemo(
+        () => (isSearching ? searchError : articlesError),
+        [isSearching, searchError, articlesError]
+    )
+
+    // メモ化: 選択されたタグに基づいて記事をフィルタリング
     const filteredArticles = useMemo(() => {
         if (!selectedTag) {
-            // タグが選択されていない場合は全記事を表示
             return displayArticles
         }
         return displayArticles.filter(article => article.tags.includes(selectedTag))
     }, [displayArticles, selectedTag])
 
-    // ページネーション計算
-    const totalPages = Math.ceil(filteredArticles.length / pageSize)
-    const startIndex = (currentPage - 1) * pageSize
-    const endIndex = startIndex + pageSize
-    const paginatedArticles = filteredArticles.slice(startIndex, endIndex)
+    // メモ化: ページネーション計算
+    const { totalPages, startIndex, endIndex, paginatedArticles } = useMemo(() => {
+        const total = Math.ceil(filteredArticles.length / pageSize)
+        const start = (currentPage - 1) * pageSize
+        const end = start + pageSize
+        const paginated = filteredArticles.slice(start, end)
 
-    // ページサイズ変更時に1ページ目に戻る
-    const handlePageSizeChange = (newPageSize: number) => {
+        return {
+            totalPages: total,
+            startIndex: start,
+            endIndex: end,
+            paginatedArticles: paginated,
+        }
+    }, [filteredArticles, currentPage, pageSize])
+
+    // メモ化: タグごとの記事数
+    const tagsWithCount = useMemo(() => {
+        return tags
+            .map(tag => ({
+                ...tag,
+                count: displayArticles.filter(article => article.tags.includes(tag.name)).length
+            }))
+            .filter(tag => tag.count > 0)
+            .sort((a, b) => b.count - a.count)
+    }, [tags, displayArticles])
+
+    // メモ化: 表示するタグ
+    const displayTags = useMemo(
+        () => (showAllTags ? tagsWithCount : tagsWithCount.slice(0, 8)),
+        [showAllTags, tagsWithCount]
+    )
+
+    const hasMoreTags = tagsWithCount.length > 8
+
+    // useCallback: ページサイズ変更
+    const handlePageSizeChange = useCallback((newPageSize: number) => {
         setPageSize(newPageSize)
         setCurrentPage(1)
-    }
+    }, [])
 
-    // ページ変更
-    const handlePageChange = (newPage: number) => {
+    // useCallback: ページ変更
+    const handlePageChange = useCallback((newPage: number) => {
         setCurrentPage(newPage)
         window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+    }, [])
 
-    // 検索処理のハンドラー
-    const handleSearch = async (searchKeyword: string) => {
-        setCurrentPage(1) // 検索時は1ページ目に戻る
+    // useCallback: 検索処理
+    const handleSearch = useCallback(async (searchKeyword: string) => {
+        setCurrentPage(1)
         if (searchKeyword.trim().length === 0) {
             clearSearch()
             setSelectedTag(null)
@@ -73,28 +117,26 @@ export default function ArticlesPage() {
             setSelectedTag(null)
             await search(searchKeyword)
         }
-    }
+    }, [clearSearch, search])
 
-    // 検索クリアのハンドラー
-    const handleClearSearch = () => {
+    // useCallback: 検索クリア
+    const handleClearSearch = useCallback(() => {
         clearSearch()
         setSelectedTag(null)
-    }
+    }, [clearSearch])
 
-    // 削除ダイアログを開く
-    const handleDeleteClick = (id: number) => {
+    // useCallback: 削除処理
+    const handleDeleteClick = useCallback((id: number) => {
         setArticleToDelete(id)
         setDeleteDialogOpen(true)
-    }
+    }, [])
 
-    // 削除をキャンセル
-    const handleCancelDelete = () => {
+    const handleCancelDelete = useCallback(() => {
         setDeleteDialogOpen(false)
         setArticleToDelete(null)
-    }
+    }, [])
 
-    // 削除を実行
-    const handleConfirmDelete = async () => {
+    const handleConfirmDelete = useCallback(async () => {
         if (articleToDelete === null) return
 
         try {
@@ -103,7 +145,6 @@ export default function ArticlesPage() {
             setDeleteDialogOpen(false)
             setArticleToDelete(null)
 
-            // 削除後、現在のページに記事がなくなった場合は前のページに移動
             if (paginatedArticles.length === 1 && currentPage > 1) {
                 setCurrentPage(currentPage - 1)
             }
@@ -112,7 +153,7 @@ export default function ArticlesPage() {
         } finally {
             setIsDeleting(false)
         }
-    }
+    }, [articleToDelete, deleteArticle, paginatedArticles.length, currentPage])
 
     // ローディング中の表示
     if (loading) {
@@ -247,72 +288,53 @@ export default function ArticlesPage() {
                         >
                             すべて ({displayArticles.length})
                         </button>
-                        {(() => {
-                            // タグを記事数でソートして、件数が0のタグを除外
-                            const tagsWithCount = tags
-                                .map(tag => ({
-                                    ...tag,
-                                    count: displayArticles.filter(article => article.tags.includes(tag.name)).length
-                                }))
-                                .filter(tag => tag.count > 0)
-                                .sort((a, b) => b.count - a.count)
-
-                            // 表示するタグを決定（最初は8個、もっと見るで全部）
-                            const displayTags = showAllTags ? tagsWithCount : tagsWithCount.slice(0, 8)
-                            const hasMoreTags = tagsWithCount.length > 8
+                        {displayTags.map(tag => {
+                            // 記事数に応じた背景色の濃淡を計算
+                            const opacity = Math.min(100, 40 + (tag.count * 10))
+                            const isBold = tag.count >= 5
 
                             return (
-                                <>
-                                    {displayTags.map(tag => {
-                                        // 記事数に応じた背景色の濃淡を計算
-                                        const opacity = Math.min(100, 40 + (tag.count * 10))
-                                        const isBold = tag.count >= 5
-
-                                        return (
-                                            <button
-                                                key={tag.id}
-                                                onClick={() => {
-                                                    setSelectedTag(tag.name)
-                                                    setCurrentPage(1)
-                                                }}
-                                                style={{
-                                                    backgroundColor: selectedTag === tag.name ? undefined : `rgba(107, 114, 128, ${opacity / 100})`
-                                                }}
-                                                className={`px-4 py-2 rounded-full text-sm transition-all duration-200 hover:shadow-md hover:scale-105 ${
-                                                    selectedTag === tag.name
-                                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-semibold'
-                                                        : `text-gray-700 hover:bg-gray-300 ${isBold ? 'font-semibold' : 'font-medium'}`
-                                                }`}
-                                            >
-                                                {tag.name} ({tag.count})
-                                            </button>
-                                        )
-                                    })}
-                                    {hasMoreTags && (
-                                        <button
-                                            onClick={() => setShowAllTags(!showAllTags)}
-                                            className="px-4 py-2 rounded-full text-sm font-medium text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-50 transition-all duration-200 hover:shadow-md"
-                                        >
-                                            {showAllTags ? (
-                                                <span className="flex items-center gap-1">
-                                                    <span>閉じる</span>
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                                    </svg>
-                                                </span>
-                                            ) : (
-                                                <span className="flex items-center gap-1">
-                                                    <span>もっと見る (+{tagsWithCount.length - 8})</span>
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                </span>
-                                            )}
-                                        </button>
-                                    )}
-                                </>
+                                <button
+                                    key={tag.id}
+                                    onClick={() => {
+                                        setSelectedTag(tag.name)
+                                        setCurrentPage(1)
+                                    }}
+                                    style={{
+                                        backgroundColor: selectedTag === tag.name ? undefined : `rgba(107, 114, 128, ${opacity / 100})`
+                                    }}
+                                    className={`px-4 py-2 rounded-full text-sm transition-all duration-200 hover:shadow-md hover:scale-105 ${
+                                        selectedTag === tag.name
+                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-semibold'
+                                            : `text-gray-700 hover:bg-gray-300 ${isBold ? 'font-semibold' : 'font-medium'}`
+                                    }`}
+                                >
+                                    {tag.name} ({tag.count})
+                                </button>
                             )
-                        })()}
+                        })}
+                        {hasMoreTags && (
+                            <button
+                                onClick={() => setShowAllTags(!showAllTags)}
+                                className="px-4 py-2 rounded-full text-sm font-medium text-indigo-600 border-2 border-indigo-600 hover:bg-indigo-50 transition-all duration-200 hover:shadow-md"
+                            >
+                                {showAllTags ? (
+                                    <span className="flex items-center gap-1">
+                                        <span>閉じる</span>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                        </svg>
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-1">
+                                        <span>もっと見る (+{tagsWithCount.length - 8})</span>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </span>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
