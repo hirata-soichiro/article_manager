@@ -552,6 +552,30 @@ func (r *mysqlArticleRepository) findTagsByArticleID(ctx context.Context, articl
 	return tags, nil
 }
 
+// escapeBooleanModeSpecialChars はBOOLEAN MODEの特殊文字をエスケープする
+func escapeBooleanModeSpecialChars(s string) string {
+	// BOOLEAN MODEで特殊な意味を持つ文字をエスケープ
+	replacer := strings.NewReplacer(
+		"+", "\\+",
+		"-", "\\-",
+		"*", "\\*",
+		"<", "\\<",
+		">", "\\>",
+		"(", "\\(",
+		")", "\\)",
+		"~", "\\~",
+		"\"", "\\\"",
+		"@", "\\@",
+	)
+	return replacer.Replace(s)
+}
+
+// containsSpecialChars は文字列が全文検索で問題となる特殊文字を含むかチェック
+func containsSpecialChars(s string) bool {
+	specialChars := "+-*<>()~\"@"
+	return strings.ContainsAny(s, specialChars)
+}
+
 // 曖昧検索機能
 func (r *mysqlArticleRepository) Search(ctx context.Context, keyword string) ([]*entity.Article, error) {
 	logger.Debug("Searching articles",
@@ -565,15 +589,32 @@ func (r *mysqlArticleRepository) Search(ctx context.Context, keyword string) ([]
 
 	keywords := strings.Fields(trimmedKeyword)
 
-	// FULLTEXTインデックスを活用した検索（ngramパーサー使用）
+	// 特殊文字を含む場合はLIKE検索を使用
 	var matchConditions []string
 	var args []interface{}
-
-	// MATCH AGAINST構文を使用（FULLTEXTインデックスを活用）
+	useLike := false
 	for _, kw := range keywords {
-		matchConditions = append(matchConditions, "MATCH(a.title, a.summary) AGAINST(? IN BOOLEAN MODE)")
-		// BOOLEAN MODEで部分一致検索を可能にする
-		args = append(args, "*"+kw+"*")
+		if containsSpecialChars(kw) {
+			useLike = true
+			break
+		}
+	}
+
+	if useLike {
+		// LIKE検索にフォールバック
+		for _, kw := range keywords {
+			matchConditions = append(matchConditions, "(a.title LIKE ? OR a.summary LIKE ? OR a.memo LIKE ?)")
+			likePattern := "%" + kw + "%"
+			args = append(args, likePattern, likePattern, likePattern)
+		}
+	} else {
+		// FULLTEXTインデックスを活用した検索（ngramパーサー使用）
+		for _, kw := range keywords {
+			matchConditions = append(matchConditions, "MATCH(a.title, a.summary, a.memo) AGAINST(? IN BOOLEAN MODE)")
+			// ngramパーサーでは部分一致が自動的に行われるため、ワイルドカードは不要
+			escapedKw := escapeBooleanModeSpecialChars(kw)
+			args = append(args, escapedKw)
+		}
 	}
 
 	whereClause := strings.Join(matchConditions, " AND ")

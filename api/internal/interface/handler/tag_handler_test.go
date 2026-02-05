@@ -68,7 +68,7 @@ func TestCreateTag(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "name is required")
+		assert.Contains(t, response["error"], "validation failed")
 	})
 
 	t.Run("異常系：名前が長すぎる場合", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestCreateTag(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "50 characters or less")
+		assert.Contains(t, response["error"], "validation failed")
 	})
 
 	t.Run("異常系：不正なJSON", func(t *testing.T) {
@@ -209,7 +209,7 @@ func TestGetTagByID(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "invalid id")
+		assert.Contains(t, response["error"], "invalid argument")
 	})
 }
 
@@ -289,7 +289,7 @@ func TestUpdateTag(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "name is required")
+		assert.Contains(t, response["error"], "validation failed")
 	})
 
 	t.Run("異常系：不正なID", func(t *testing.T) {

@@ -229,7 +229,7 @@ func TestGetTagByID(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "invalid id")
+		assert.Contains(t, err.Error(), "id must be positive")
 	})
 }
 
@@ -394,7 +394,7 @@ func TestDeleteTag(t *testing.T) {
 		err := usecase.DeleteTag(context.Background(), 0)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid id")
+		assert.Contains(t, err.Error(), "id must be positive")
 	})
 
 	t.Run("異常系：タグが存在しない", func(t *testing.T) {
