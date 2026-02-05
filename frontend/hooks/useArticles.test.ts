@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { useArticles } from './useArticles'
+import { useArticles, __resetArticlesCache } from './useArticles'
 import { articleClient } from '@/lib/api/articleClient'
 import type { Article, CreateArticleInput, UpdateArticleInput } from '@/types/article'
 
@@ -38,9 +38,10 @@ describe('useArticles', () => {
         },
     ]
 
-    // 各テスト前にモックをクリア
+    // 各テスト前にモックとキャッシュをクリア
     beforeEach(() => {
         vi.clearAllMocks()
+        __resetArticlesCache()
     })
 
     describe('記事一覧の取得', () => {

@@ -195,9 +195,13 @@ describe('ArticleForm', () => {
 
             fireEvent.click(goTagButton!)
 
-            // 選択状態のスタイルが適用される
+            // 選択済みエリアに表示され、bg-blue-600クラスを持つことを確認
             await waitFor(() => {
-                expect(goTagButton).toHaveClass('bg-blue-600')
+                const selectedButtons = screen.getAllByText('Go')
+                const selectedButton = selectedButtons.find(btn =>
+                    btn.closest('button')?.classList.contains('bg-blue-600')
+                )
+                expect(selectedButton).toBeInTheDocument()
             })
         })
 
@@ -214,9 +218,17 @@ describe('ArticleForm', () => {
             fireEvent.click(goTagButton!)
             fireEvent.click(reactTagButton!)
 
+            // 両方のタグが選択済みエリアに表示されることを確認
             await waitFor(() => {
-                expect(goTagButton).toHaveClass('bg-blue-600')
-                expect(reactTagButton).toHaveClass('bg-blue-600')
+                const selectedButtons = screen.getAllByRole('button')
+                const selectedGoButton = selectedButtons.find(btn =>
+                    btn.textContent?.includes('Go') && btn.classList.contains('bg-blue-600')
+                )
+                const selectedReactButton = selectedButtons.find(btn =>
+                    btn.textContent?.includes('React') && btn.classList.contains('bg-blue-600')
+                )
+                expect(selectedGoButton).toBeInTheDocument()
+                expect(selectedReactButton).toBeInTheDocument()
             })
         })
 
@@ -232,13 +244,36 @@ describe('ArticleForm', () => {
             // 選択
             fireEvent.click(goTagButton!)
             await waitFor(() => {
-                expect(goTagButton).toHaveClass('bg-blue-600')
+                const selectedButtons = screen.getAllByText('Go')
+                const selectedButton = selectedButtons.find(btn =>
+                    btn.closest('button')?.classList.contains('bg-blue-600')
+                )
+                expect(selectedButton).toBeInTheDocument()
             })
 
-            // 選択解除
-            fireEvent.click(goTagButton!)
+            // 選択済みボタンを見つけて、選択解除
+            const selectedButtons = screen.getAllByText('Go')
+            const selectedButton = selectedButtons.find(btn =>
+                btn.closest('button')?.classList.contains('bg-blue-600')
+            )
+            const selectedGoButton = selectedButton?.closest('button')
+            expect(selectedGoButton).toBeTruthy()
+
+            fireEvent.click(selectedGoButton!)
+
+            // 選択が解除され、未選択タグリストに戻ることを確認
             await waitFor(() => {
-                expect(goTagButton).not.toHaveClass('bg-blue-600')
+                const allButtons = screen.getAllByRole('button')
+                const hasBlueButton = allButtons.some(btn =>
+                    btn.textContent?.includes('Go') && btn.classList.contains('bg-blue-600')
+                )
+                expect(hasBlueButton).toBe(false)
+
+                // 未選択タグリストに戻っていることを確認（bg-gray-100）
+                const unselectedButton = allButtons.find(btn =>
+                    btn.textContent?.includes('Go') && btn.classList.contains('bg-gray-100')
+                )
+                expect(unselectedButton).toBeInTheDocument()
             })
         })
     })

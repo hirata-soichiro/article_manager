@@ -6,6 +6,7 @@ import { articleClient } from '@/lib/api/articleClient'
 import { tagClient } from '@/lib/api/tagClient'
 import { Tag } from '@/types/tag'
 import { CreateArticleInput } from '@/types/article'
+import { VALIDATION_CONSTANTS, UI_CONSTANTS } from '@/config/constants'
 
 export default function ArticleForm() {
     const router = useRouter()
@@ -41,8 +42,8 @@ export default function ArticleForm() {
 
         // バリデーション
         if (!newTagName) return
-        if (newTagName.length > 50) {
-            alert('タグ名は50文字以内にしてください')
+        if (newTagName.length > VALIDATION_CONSTANTS.TAG_NAME_MAX_LENGTH) {
+            alert(`タグ名は${VALIDATION_CONSTANTS.TAG_NAME_MAX_LENGTH}文字以内にしてください`)
             return
         }
 
@@ -495,8 +496,8 @@ export default function ArticleForm() {
                                     )
 
                                     // 表示するタグを決定
-                                    const displayTags = showAllTags ? filteredTags : filteredTags.slice(0, 8)
-                                    const hasMore = filteredTags.length > 8
+                                    const displayTags = showAllTags ? filteredTags : filteredTags.slice(0, UI_CONSTANTS.TAG_DISPLAY_LIMIT)
+                                    const hasMore = filteredTags.length > UI_CONSTANTS.TAG_DISPLAY_LIMIT
 
                                     // 新しいタグを作成可能か判定
                                     const trimmedSearch = tagSearch.trim()

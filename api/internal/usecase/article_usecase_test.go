@@ -225,7 +225,7 @@ func TestGetArticleByID(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "invalid id")
+		assert.Contains(t, err.Error(), "id must be positive")
 	})
 }
 
@@ -455,7 +455,7 @@ func TestDeleteArticle(t *testing.T) {
 		err := usecase.DeleteArticle(context.Background(), 0)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid id")
+		assert.Contains(t, err.Error(), "id must be positive")
 	})
 
 	t.Run("異常系：記事が存在しない", func(t *testing.T) {

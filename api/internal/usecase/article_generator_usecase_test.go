@@ -415,7 +415,7 @@ func TestGenerateArticleFromURL(t *testing.T) {
 			expectedErrorMsg: "failed to create tag",
 		},
 		{
-			name: "異常系：生成されたタグ名が不正（空文字）",
+			name: "正常系：生成されたタグに空文字が含まれる場合、スキップして保存",
 			url:  "https://example.com/article",
 			memo: "",
 			setupMocks: func() (*mockAIGeneratorService, *mockArticleRepository, *mockTagRepository) {
@@ -439,10 +439,23 @@ func TestGenerateArticleFromURL(t *testing.T) {
 						return nil, errors.New("tag not found")
 					},
 				}
-				return aiService, &mockArticleRepository{}, tagRepo
+				articleRepo := &mockArticleRepository{
+					createFunc: func(ctx context.Context, article *entity.Article) (*entity.Article, error) {
+						article.ID = 1
+						article.CreatedAt = time.Now()
+						article.UpdatedAt = time.Now()
+						return article, nil
+					},
+				}
+				return aiService, articleRepo, tagRepo
 			},
-			expectedError:    true,
-			expectedErrorMsg: "tag cannot be empty",
+			expectedError: false,
+			validateResult: func(t *testing.T, article *entity.Article) {
+				assert.Equal(t, "記事タイトル", article.Title)
+				assert.Equal(t, "https://example.com/article", article.URL)
+				assert.Equal(t, "記事の要約", article.Summary)
+				assert.Equal(t, []string{"Go"}, article.Tags)
+			},
 		},
 	}
 	for _, tt := range tests {

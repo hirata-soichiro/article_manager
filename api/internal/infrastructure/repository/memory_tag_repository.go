@@ -2,11 +2,11 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"sync"
 
 	"article-manager/internal/domain/entity"
+	domainerrors "article-manager/internal/domain/errors"
 	"article-manager/internal/domain/repository"
 )
 
@@ -47,7 +47,7 @@ func (r *MemoryTagRepository) FindByID(ctx context.Context, id int64) (*entity.T
 
 	tag, exists := r.tags[id]
 	if !exists {
-		return nil, errors.New("tag not found")
+		return nil, domainerrors.NotFoundError("tag", "tag not found")
 	}
 
 	result := *tag
@@ -66,7 +66,7 @@ func (r *MemoryTagRepository) FindByName(ctx context.Context, name string) (*ent
 		}
 	}
 
-	return nil, errors.New("tag not found")
+	return nil, domainerrors.NotFoundError("tag", "tag not found")
 }
 
 // すべてのタグを取得
@@ -93,7 +93,7 @@ func (r *MemoryTagRepository) Update(ctx context.Context, tag *entity.Tag) (*ent
 	defer r.mu.Unlock()
 
 	if _, exists := r.tags[tag.ID]; !exists {
-		return nil, errors.New("tag not found")
+		return nil, domainerrors.NotFoundError("tag", "tag not found")
 	}
 
 	updated := *tag
@@ -108,7 +108,7 @@ func (r *MemoryTagRepository) Delete(ctx context.Context, id int64) error {
 	defer r.mu.Unlock()
 
 	if _, exists := r.tags[id]; !exists {
-		return errors.New("tag not found")
+		return domainerrors.NotFoundError("tag", "tag not found")
 	}
 
 	delete(r.tags, id)

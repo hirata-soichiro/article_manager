@@ -2,12 +2,12 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"sort"
 	"strings"
 	"sync"
 
 	"article-manager/internal/domain/entity"
+	domainerrors "article-manager/internal/domain/errors"
 	"article-manager/internal/domain/repository"
 )
 
@@ -48,7 +48,7 @@ func (r *MemoryArticleRepository) FindByID(ctx context.Context, id int64) (*enti
 
 	article, exists := r.articles[id]
 	if !exists {
-		return nil, errors.New("article not found")
+		return nil, domainerrors.NotFoundError("article", "article not found")
 	}
 
 	result := *article
@@ -79,7 +79,7 @@ func (r *MemoryArticleRepository) Update(ctx context.Context, article *entity.Ar
 	defer r.mu.Unlock()
 
 	if _, exists := r.articles[article.ID]; !exists {
-		return nil, errors.New("article not found")
+		return nil, domainerrors.NotFoundError("article", "article not found")
 	}
 
 	updated := *article
@@ -94,7 +94,7 @@ func (r *MemoryArticleRepository) Delete(ctx context.Context, id int64) error {
 	defer r.mu.Unlock()
 
 	if _, exists := r.articles[id]; !exists {
-		return errors.New("article not found")
+		return domainerrors.NotFoundError("article", "article not found")
 	}
 
 	delete(r.articles, id)

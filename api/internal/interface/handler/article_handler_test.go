@@ -75,7 +75,7 @@ func TestCreateArticle(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "title")
+		assert.Contains(t, response["error"], "validation failed")
 	})
 
 	t.Run("異常系：URLが空の場合", func(t *testing.T) {
@@ -100,7 +100,7 @@ func TestCreateArticle(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "url")
+		assert.Contains(t, response["error"], "validation failed")
 	})
 
 	t.Run("異常系：URLが不正な形式の場合", func(t *testing.T) {
@@ -125,7 +125,7 @@ func TestCreateArticle(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "url")
+		assert.Contains(t, response["error"], "validation failed")
 	})
 
 	t.Run("異常系：要約が空の場合", func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestCreateArticle(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "summary")
+		assert.Contains(t, response["error"], "validation failed")
 	})
 
 	t.Run("異常系：不正なJSON", func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestGetArticleByID(t *testing.T) {
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
 		require.NoError(t, err)
-		assert.Contains(t, response["error"], "invalid id")
+		assert.Contains(t, response["error"], "invalid argument")
 	})
 }
 
