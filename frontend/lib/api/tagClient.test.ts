@@ -80,7 +80,7 @@ describe('TagClient', () => {
             ;(global.fetch as any).mockResolvedValue({
                 ok: false,
                 status: 500,
-                json: async () => ({ error: 'Internal Server Error'}),
+                json: async () => ({ error: 'Failed to fetch tags'}),
             })
 
             // 実行と検証: エラーがスローされること

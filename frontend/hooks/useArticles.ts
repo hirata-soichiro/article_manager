@@ -22,6 +22,12 @@ const articlesCache = {
     ttl: CACHE_CONSTANTS.CACHE_TTL,
 }
 
+// テスト用: キャッシュをリセットする関数
+export const __resetArticlesCache = () => {
+    articlesCache.data = null
+    articlesCache.timestamp = 0
+}
+
 // 記事管理用カスタムフック(記事一覧、作成、更新、削除)
 export function useArticles(): UseArticlesReturn {
     // 状態管理
