@@ -7,7 +7,7 @@ import (
 )
 
 // 書籍推薦サービスのインターフェース
-type BookRecomendationService interface {
+type BookRecommendationService interface {
 	RecommendBooks(ctx context.Context, articles []*entity.Article) ([]entity.Book, error)
 }
 

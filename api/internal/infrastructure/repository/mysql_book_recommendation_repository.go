@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"time"
 
 	"article-manager/internal/domain/entity"
 	domainerrors "article-manager/internal/domain/errors"

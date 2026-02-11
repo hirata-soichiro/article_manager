@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"article-manager/internal/domain/entity"
 	"article-manager/internal/domain/service"
 )
 
