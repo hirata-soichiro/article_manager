@@ -6,7 +6,6 @@ import (
 	"article-manager/internal/domain/entity"
 	domainservice "article-manager/internal/domain/service"
 	"article-manager/internal/infrastructure/ai"
-	"article-manager/internal/infrastructure/external"
 	"article-manager/internal/infrastructure/logger"
 
 	"go.uber.org/zap"
@@ -14,18 +13,15 @@ import (
 
 // BookRecommendationServiceの実装
 type bookRecommendationServiceImpl struct {
-	geminiClient      *ai.GeminiClient
-	googleBooksClient *external.GoogleBooksClient
+	geminiClient *ai.GeminiClient
 }
 
 // コンストラクタ
 func NewBookRecommendationService(
 	geminiClient *ai.GeminiClient,
-	googleBooksClient *external.GoogleBooksClient,
 ) domainservice.BookRecommendationService {
 	return &bookRecommendationServiceImpl{
-		geminiClient:      geminiClient,
-		googleBooksClient: googleBooksClient,
+		geminiClient: geminiClient,
 	}
 }
 
@@ -58,51 +54,27 @@ func (s *bookRecommendationServiceImpl) RecommendBooks(ctx context.Context, arti
 		zap.Int("book_count", len(recommendedBooks)),
 	)
 
-	// 各書籍の詳細情報をGoogle Books APIから取得
+	// Geminiのレスポンスを直接entity.Bookに変換
 	books := make([]entity.Book, 0, len(recommendedBooks))
 	for i, rec := range recommendedBooks {
-		logger.Debug("Fetching book details from Google Books",
+		logger.Debug("Processing book recommendation",
 			zap.Int("index", i),
 			zap.String("title", rec.Title),
-			zap.String("author", rec.Author),
 		)
-
-		// Google Books APIで書籍詳細を検索
-		bookDetail, err := s.googleBooksClient.SearchBook(ctx, rec.Title, rec.Author)
-		if err != nil {
-			// Google Books APIのエラーはログに記録するが、推薦は続行
-			logger.Warn("Failed to fetch book details from Google Books API, using basic info",
-				zap.String("title", rec.Title),
-				zap.String("author", rec.Author),
-				zap.Error(err),
-			)
-			// 基本情報のみで書籍を作成
-			bookDetail = &external.BookDetail{
-				Title:  rec.Title,
-				Author: rec.Author,
-				PurchaseLinks: external.PurchaseLinks{
-					Amazon:  "",
-					Rakuten: "",
-				},
-			}
-		}
 
 		// entity.Bookに変換
 		book := entity.Book{
-			Title:  bookDetail.Title,
-			Author: bookDetail.Author,
-			ISBN:   bookDetail.ISBN,
+			Title: rec.Title,
 			PurchaseLinks: entity.PurchaseLinks{
-				Amazon:  bookDetail.PurchaseLinks.Amazon,
-				Rakuten: bookDetail.PurchaseLinks.Rakuten,
+				Amazon:  rec.AmazonURL,
+				Rakuten: rec.RakutenURL,
 			},
 		}
 
-		// バリデーション（NewBookを使わずに直接作成）
-		if book.Title == "" || book.Author == "" {
-			logger.Warn("Skipping book with missing title or author",
+		// バリデーション
+		if book.Title == "" {
+			logger.Warn("Skipping book with missing title",
 				zap.String("title", book.Title),
-				zap.String("author", book.Author),
 			)
 			continue
 		}
@@ -112,8 +84,6 @@ func (s *bookRecommendationServiceImpl) RecommendBooks(ctx context.Context, arti
 		logger.Debug("Successfully added book",
 			zap.Int("index", i),
 			zap.String("title", book.Title),
-			zap.String("author", book.Author),
-			zap.String("isbn", book.ISBN),
 		)
 	}
 

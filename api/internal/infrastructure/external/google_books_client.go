@@ -55,6 +55,7 @@ type BookDetail struct {
 	Author        string
 	ISBN          string
 	ISBN13        string
+	ImageURL      string
 	PurchaseLinks PurchaseLinks
 }
 
@@ -74,6 +75,10 @@ type googleBooksResponse struct {
 				Type       string `json:"type"`
 				Identifier string `json:"identifier"`
 			} `json:"industryIdentifiers"`
+			ImageLinks struct {
+				SmallThumbnail string `json:"smallThumbnail"`
+				Thumbnail      string `json:"thumbnail"`
+			} `json:"imageLinks"`
 		} `json:"volumeInfo"`
 	} `json:"items"`
 }
@@ -215,11 +220,18 @@ func (c *GoogleBooksClient) searchBookRequest(ctx context.Context, title, author
 	// 購入リンクを生成
 	purchaseLinks := c.generatePurchaseLinks(primaryISBN, isbn13)
 
+	// 画像URLを取得（thumbnailを優先、なければsmallThumbnail）
+	imageURL := volumeInfo.ImageLinks.Thumbnail
+	if imageURL == "" {
+		imageURL = volumeInfo.ImageLinks.SmallThumbnail
+	}
+
 	return &BookDetail{
 		Title:         volumeInfo.Title,
 		Author:        authorName,
 		ISBN:          primaryISBN,
 		ISBN13:        isbn13,
+		ImageURL:      imageURL,
 		PurchaseLinks: purchaseLinks,
 	}, nil
 }
@@ -228,12 +240,14 @@ func (c *GoogleBooksClient) searchBookRequest(ctx context.Context, title, author
 func (c *GoogleBooksClient) generatePurchaseLinks(isbn10, isbn13 string) PurchaseLinks {
 	links := PurchaseLinks{}
 
-	if isbn10 != "" {
-		cleanISBN := strings.ReplaceAll(isbn10, "-", "")
-		links.Amazon = fmt.Sprintf("https://www.amazon.co.jp/dp/%s", cleanISBN)
-	} else if isbn13 != "" {
+	// ISBNが存在する場合、Amazon検索ページへのリンクを生成
+	// /dp/形式だと洋書が見つからない場合があるため、検索ページを使用
+	if isbn13 != "" {
 		cleanISBN := strings.ReplaceAll(isbn13, "-", "")
-		links.Amazon = fmt.Sprintf("https://www.amazon.co.jp/dp/%s", cleanISBN)
+		links.Amazon = fmt.Sprintf("https://www.amazon.co.jp/s?k=%s", cleanISBN)
+	} else if isbn10 != "" {
+		cleanISBN := strings.ReplaceAll(isbn10, "-", "")
+		links.Amazon = fmt.Sprintf("https://www.amazon.co.jp/s?k=%s", cleanISBN)
 	}
 
 	if isbn13 != "" {

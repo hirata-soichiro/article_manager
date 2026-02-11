@@ -16,8 +16,6 @@ type PurchaseLinks struct {
 // 書籍
 type Book struct {
 	Title         string
-	Author        string
-	ISBN          string
 	PurchaseLinks PurchaseLinks
 }
 
@@ -30,14 +28,8 @@ type BookRecommendationCache struct {
 }
 
 // 新しい書籍の作成
-func NewBook(title, author, isbn string, purchaseLinks PurchaseLinks) (*Book, error) {
+func NewBook(title string, purchaseLinks PurchaseLinks) (*Book, error) {
 	if err := validateBookTitle(title); err != nil {
-		return nil, err
-	}
-	if err := validateAuthor(author); err != nil {
-		return nil, err
-	}
-	if err := validateISBN(isbn); err != nil {
 		return nil, err
 	}
 	if err := validatePurchaseLinks(purchaseLinks); err != nil {
@@ -46,8 +38,6 @@ func NewBook(title, author, isbn string, purchaseLinks PurchaseLinks) (*Book, er
 
 	book := &Book{
 		Title:         title,
-		Author:        author,
-		ISBN:          isbn,
 		PurchaseLinks: purchaseLinks,
 	}
 
@@ -89,26 +79,6 @@ func validateBookTitle(title string) error {
 	return nil
 }
 
-func validateAuthor(author string) error {
-	if author == "" {
-		return errors.New("author is required")
-	}
-	if utf8.RuneCountInString(author) > 255 {
-		return errors.New("author must be 255 characters or less")
-	}
-	return nil
-}
-
-func validateISBN(isbn string) error {
-	if isbn == "" {
-		return nil
-	}
-	if len(isbn) != 10 && len(isbn) != 13 {
-		return errors.New("isbn must be 10 or 13 characters")
-	}
-	return nil
-}
-
 func validatePurchaseLinks(links PurchaseLinks) error {
 	if links.Amazon != "" {
 		if !strings.HasPrefix(links.Amazon, "http://") && !strings.HasPrefix(links.Amazon, "https://") {
@@ -131,9 +101,6 @@ func validateBooks(books []Book) error {
 	for i, book := range books {
 		if book.Title == "" {
 			return errors.New("book title is required at index " + string(rune(i)))
-		}
-		if book.Author == "" {
-			return errors.New("author is required at index " + string(rune(i)))
 		}
 	}
 

@@ -63,7 +63,7 @@ func TestSearchBook(t *testing.T) {
 		assert.Equal(t, "Dustin Boswell, Trevor Foucher", book.Author)
 		assert.Equal(t, "4873115655", book.ISBN)
 		assert.Equal(t, "9784873115658", book.ISBN13)
-		assert.Equal(t, "https://www.amazon.co.jp/dp/4873115655", book.PurchaseLinks.Amazon)
+		assert.Equal(t, "https://www.amazon.co.jp/s?k=9784873115658", book.PurchaseLinks.Amazon)
 		assert.Contains(t, book.PurchaseLinks.Rakuten, "9784873115658")
 	})
 
@@ -102,7 +102,7 @@ func TestSearchBook(t *testing.T) {
 		assert.Equal(t, "Robert C. Martin", book.Author)
 		assert.Equal(t, "9780134494166", book.ISBN)
 		assert.Equal(t, "9780134494166", book.ISBN13)
-		assert.Equal(t, "https://www.amazon.co.jp/dp/9780134494166", book.PurchaseLinks.Amazon)
+		assert.Equal(t, "https://www.amazon.co.jp/s?k=9780134494166", book.PurchaseLinks.Amazon)
 		assert.Contains(t, book.PurchaseLinks.Rakuten, "9780134494166")
 	})
 

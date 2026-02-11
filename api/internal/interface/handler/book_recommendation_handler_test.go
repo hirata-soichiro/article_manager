@@ -102,18 +102,14 @@ func TestGetBookRecommendationsHandler(t *testing.T) {
 			ID: 1,
 			Books: []entity.Book{
 				{
-					Title:  "リーダブルコード",
-					Author: "Dustin Boswell, Trevor Foucher",
-					ISBN:   "9784873115658",
+					Title: "リーダブルコード",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon:  "https://www.amazon.co.jp/dp/4873115655",
 						Rakuten: "https://books.rakuten.co.jp/rb/11753651/",
 					},
 				},
 				{
-					Title:  "Clean Code",
-					Author: "Robert C. Martin",
-					ISBN:   "9780132350884",
+					Title: "Clean Code",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon: "https://www.amazon.co.jp/dp/0132350884",
 					},
@@ -154,15 +150,11 @@ func TestGetBookRecommendationsHandler(t *testing.T) {
 
 		// 1冊目の確認
 		assert.Equal(t, "リーダブルコード", response.Books[0].Title)
-		assert.Equal(t, "Dustin Boswell, Trevor Foucher", response.Books[0].Author)
-		assert.Equal(t, "9784873115658", response.Books[0].ISBN)
 		assert.Equal(t, "https://www.amazon.co.jp/dp/4873115655", response.Books[0].PurchaseLinks.Amazon)
 		assert.Equal(t, "https://books.rakuten.co.jp/rb/11753651/", response.Books[0].PurchaseLinks.Rakuten)
 
 		// 2冊目の確認
 		assert.Equal(t, "Clean Code", response.Books[1].Title)
-		assert.Equal(t, "Robert C. Martin", response.Books[1].Author)
-		assert.Equal(t, "9780132350884", response.Books[1].ISBN)
 		assert.Equal(t, "https://www.amazon.co.jp/dp/0132350884", response.Books[1].PurchaseLinks.Amazon)
 
 		// キャッシュフラグとタイムスタンプの確認
@@ -232,9 +224,7 @@ func TestGetBookRecommendationsHandler(t *testing.T) {
 			recommendBooksFunc: func(ctx context.Context, articles []*entity.Article) ([]entity.Book, error) {
 				return []entity.Book{
 					{
-						Title:  "プログラミング言語Go",
-						Author: "Alan A. A. Donovan",
-						ISBN:   "9784621300251",
+						Title: "プログラミング言語Go",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/4621300253",
 						},
@@ -269,26 +259,20 @@ func TestGetBookRecommendationsHandler(t *testing.T) {
 			ID: 1,
 			Books: []entity.Book{
 				{
-					Title:  "書籍1",
-					Author: "著者1",
-					ISBN:   "1234567890",
+					Title: "書籍1",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon: "https://www.amazon.co.jp/dp/1234567890",
 					},
 				},
 				{
-					Title:  "書籍2",
-					Author: "著者2",
-					ISBN:   "0987654321",
+					Title: "書籍2",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon:  "https://www.amazon.co.jp/dp/0987654321",
 						Rakuten: "https://books.rakuten.co.jp/rb/test/",
 					},
 				},
 				{
-					Title:  "書籍3",
-					Author: "著者3",
-					ISBN:   "1111111111",
+					Title: "書籍3",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon: "https://www.amazon.co.jp/dp/1111111111",
 					},
@@ -333,9 +317,7 @@ func TestGetBookRecommendationsHandler(t *testing.T) {
 			ID: 1,
 			Books: []entity.Book{
 				{
-					Title:  "ISBNなし書籍",
-					Author: "著者名",
-					ISBN:   "",
+					Title: "ISBNなし書籍",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon: "",
 					},
@@ -370,7 +352,6 @@ func TestGetBookRecommendationsHandler(t *testing.T) {
 
 		assert.Equal(t, 1, len(response.Books))
 		assert.Equal(t, "ISBNなし書籍", response.Books[0].Title)
-		assert.Equal(t, "", response.Books[0].ISBN)
 		assert.Equal(t, "", response.Books[0].PurchaseLinks.Amazon)
 	})
 
@@ -482,9 +463,7 @@ func TestGetBookRecommendationsHandler(t *testing.T) {
 			recommendBooksFunc: func(ctx context.Context, articles []*entity.Article) ([]entity.Book, error) {
 				return []entity.Book{
 					{
-						Title:  "書籍タイトル",
-						Author: "著者名",
-						ISBN:   "1234567890",
+						Title: "書籍タイトル",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/1234567890",
 						},

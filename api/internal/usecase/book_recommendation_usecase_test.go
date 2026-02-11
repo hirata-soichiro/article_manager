@@ -45,9 +45,7 @@ func TestGetBookRecommendations(t *testing.T) {
 			ID: 1,
 			Books: []entity.Book{
 				{
-					Title:  "リーダブルコード",
-					Author: "Dustin Boswell",
-					ISBN:   "9784873115658",
+					Title: "リーダブルコード",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon:  "https://www.amazon.co.jp/dp/4873115655",
 						Rakuten: "https://books.rakuten.co.jp/rb/11753651/",
@@ -111,9 +109,7 @@ func TestGetBookRecommendations(t *testing.T) {
 			recommendBooksFunc: func(ctx context.Context, articles []*entity.Article) ([]entity.Book, error) {
 				return []entity.Book{
 					{
-						Title:  "プログラミング言語Go",
-						Author: "Alan A. A. Donovan",
-						ISBN:   "9784621300251",
+						Title: "プログラミング言語Go",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/4621300253",
 						},
@@ -140,9 +136,7 @@ func TestGetBookRecommendations(t *testing.T) {
 			ID: 1,
 			Books: []entity.Book{
 				{
-					Title:  "古い書籍",
-					Author: "Author Name",
-					ISBN:   "1234567890",
+					Title: "古い書籍",
 					PurchaseLinks: entity.PurchaseLinks{
 						Amazon: "https://www.amazon.co.jp/dp/1234567890",
 					},
@@ -180,9 +174,7 @@ func TestGetBookRecommendations(t *testing.T) {
 			recommendBooksFunc: func(ctx context.Context, articles []*entity.Article) ([]entity.Book, error) {
 				return []entity.Book{
 					{
-						Title:  "新しい書籍",
-						Author: "New Author",
-						ISBN:   "9876543210",
+						Title: "新しい書籍",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/9876543210",
 						},
@@ -320,9 +312,7 @@ func TestGetBookRecommendations(t *testing.T) {
 			recommendBooksFunc: func(ctx context.Context, articles []*entity.Article) ([]entity.Book, error) {
 				return []entity.Book{
 					{
-						Title:  "書籍タイトル",
-						Author: "著者名",
-						ISBN:   "1234567890",
+						Title: "書籍タイトル",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/1234567890",
 						},
@@ -376,25 +366,19 @@ func TestGetBookRecommendations(t *testing.T) {
 			recommendBooksFunc: func(ctx context.Context, articles []*entity.Article) ([]entity.Book, error) {
 				return []entity.Book{
 					{
-						Title:  "Goプログラミング実践入門",
-						Author: "Shiju Varghese",
-						ISBN:   "9784295004073",
+						Title: "Goプログラミング実践入門",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/4295004073",
 						},
 					},
 					{
-						Title:  "Clean Architecture",
-						Author: "Robert C. Martin",
-						ISBN:   "9780134494166",
+						Title: "Clean Architecture",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/0134494164",
 						},
 					},
 					{
-						Title:  "リーダブルコード",
-						Author: "Dustin Boswell",
-						ISBN:   "9784873115658",
+						Title: "リーダブルコード",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon:  "https://www.amazon.co.jp/dp/4873115655",
 							Rakuten: "https://books.rakuten.co.jp/rb/11753651/",
@@ -444,9 +428,7 @@ func TestGetBookRecommendations(t *testing.T) {
 			recommendBooksFunc: func(ctx context.Context, articles []*entity.Article) ([]entity.Book, error) {
 				return []entity.Book{
 					{
-						Title:  "",
-						Author: "著者名",
-						ISBN:   "1234567890",
+						Title: "",
 						PurchaseLinks: entity.PurchaseLinks{
 							Amazon: "https://www.amazon.co.jp/dp/1234567890",
 						},

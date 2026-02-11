@@ -32,8 +32,6 @@ type PurchaseLinksResponse struct {
 // 書籍のレスポンス構造体
 type BookResponse struct {
 	Title         string                `json:"title"`
-	Author        string                `json:"author"`
-	ISBN          string                `json:"isbn,omitempty"`
 	PurchaseLinks PurchaseLinksResponse `json:"purchaseLinks"`
 }
 
@@ -106,9 +104,7 @@ func toBookRecommendationResponse(cache *entity.BookRecommendationCache) BookRec
 // 書籍エンティティをレスポンス形式に変換する
 func toBookResponse(book entity.Book) BookResponse {
 	return BookResponse{
-		Title:  book.Title,
-		Author: book.Author,
-		ISBN:   book.ISBN,
+		Title: book.Title,
 		PurchaseLinks: PurchaseLinksResponse{
 			Amazon:  book.PurchaseLinks.Amazon,
 			Rakuten: book.PurchaseLinks.Rakuten,

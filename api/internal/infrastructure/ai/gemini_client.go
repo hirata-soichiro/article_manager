@@ -106,8 +106,9 @@ type BookRecommendationRequest struct {
 }
 
 type RecommendedBook struct {
-	Title  string
-	Author string
+	Title      string
+	AmazonURL  string
+	RakutenURL string
 }
 
 // URLから記事を生成
@@ -165,7 +166,8 @@ func (c *GeminiClient) RecommendBooks(ctx context.Context, articles []*entity.Ar
 	}
 
 	prompt := c.buildBookRecommendationPrompt(articles)
-	response, err := c.callAPI(ctx, prompt)
+	// 書籍推薦ではURLコンテキストツールは不要なので、falseを指定
+	response, err := c.callAPIWithTools(ctx, prompt, false)
 	if err != nil {
 		return nil, err
 	}
@@ -199,40 +201,61 @@ func (c *GeminiClient) buildBookRecommendationPrompt(articles []*entity.Article)
 		articlesInfo.WriteString("\n")
 	}
 
-	return fmt.Sprintf("上記のユーザーが登録している記事の内容を総合的に分析し、ユーザーの興味・関心領域に基づいておすすめの書籍を5冊推薦してください。\n\n"+
-		"%s\n\n"+
+	return fmt.Sprintf("%s\n\n"+
+		"【タスク】上記のユーザーが登録している記事の内容を総合的に分析し、ユーザーの興味・関心領域に基づいておすすめの書籍を5冊推薦してください。\n\n"+
+		"【最重要事項 - 必ず遵守してください】\n"+
+		"- あなたは書籍情報をJSON形式で返す専用BOTです\n"+
+		"- 説明文、理由、コメント、挨拶、マークダウン記号は絶対に出力しないでください\n"+
+		"- 最初の文字は必ず「{」で、最後の文字は必ず「}」で終わってください\n"+
+		"- JSON以外の出力は厳禁です\n\n"+
 		"【重要な指示】\n"+
-		"1. 出力は必ず以下のJSON形式のみとし、それ以外のテキスト（説明文、マークダウン、コードブロック記号など）は一切含めないでください\n"+
-		"2. JSONオブジェクトのみを出力してください（前後に余分なテキストを含めない）\n"+
+		"1. 出力は必ず以下のJSON形式のみ\n"+
+		"2. JSONオブジェクトのみを出力（前後に余分なテキストを含めない）\n"+
 		"3. 推薦書籍は正確な書籍タイトルと著者名を記載してください\n"+
 		"4. 実在する書籍のみを推薦してください（架空の書籍は不可）\n"+
 		"5. 記事の内容から推測されるユーザーの専門性や興味に合った書籍を選んでください\n"+
 		"6. 技術書、ビジネス書、専門書など、実用的な書籍を優先してください\n"+
 		"7. 必ず5冊推薦してください\n"+
 		"8. 著者名は正式名称（フルネーム）で記載してください\n"+
-		"9. 日本語の書籍は日本語で、英語の書籍は原題のまま記載してください\n\n"+
+		"9. 【重要】日本の出版社から日本語で出版されている書籍のみを推薦してください（翻訳書を含む）\n"+
+		"10. 【重要】洋書（原書が英語で海外出版社から出版されている書籍）は絶対に推薦しないでください\n"+
+		"11. 【重要】書籍タイトルは必ず日本語で記載してください（ローマ字表記は不可）\n"+
+		"12. 【超重要】各書籍のAmazon ASIN（10桁の商品コード）を正確に記載してください\n"+
+		"    - ASINはAmazon.co.jpで実際に使用されている10桁のコードです\n"+
+		"    - ISBN-10が存在する場合、多くの場合ISBN-10がASINと一致します\n"+
+		"    - 例：「実践Rustプログラミング入門」のASINは「4798061700」です\n"+
+		"    - 例：「Kubernetes完全ガイド 第2版」のASINは「4295009792」です\n"+
+		"13. amazonUrlには、ASINを使用したAmazon.co.jp直接リンク（https://www.amazon.co.jp/dp/ASIN）を記載してください\n"+
+		"    - 正しい形式：https://www.amazon.co.jp/dp/4798061700\n"+
+		"    - 間違った形式：13桁のISBN-13を使用しないでください\n"+
+		"14. rakutenUrlには、書籍タイトルをURLエンコードした楽天ブックス検索URL（https://books.rakuten.co.jp/search?g=001&sitem=書籍タイトル）を記載してください\n\n"+
 		"出力形式（このフォーマット通りに出力）:\n"+
 		"{\n"+
 		"  \"books\": [\n"+
 		"    {\n"+
-		"      \"title\": \"書籍タイトル1\",\n"+
-		"      \"author\": \"著者名1\"\n"+
+		"      \"title\": \"実践Rustプログラミング入門\",\n"+
+		"      \"amazonUrl\": \"https://www.amazon.co.jp/dp/4798061700\",\n"+
+		"      \"rakutenUrl\": \"https://books.rakuten.co.jp/search?g=001&sitem=実践Rustプログラミング入門\"\n"+
 		"    },\n"+
 		"    {\n"+
-		"      \"title\": \"書籍タイトル2\",\n"+
-		"      \"author\": \"著者名2\"\n"+
+		"      \"title\": \"Kubernetes完全ガイド 第2版\",\n"+
+		"      \"amazonUrl\": \"https://www.amazon.co.jp/dp/4295009792\",\n"+
+		"      \"rakutenUrl\": \"https://books.rakuten.co.jp/search?g=001&sitem=Kubernetes完全ガイド 第2版\"\n"+
 		"    },\n"+
 		"    {\n"+
-		"      \"title\": \"書籍タイトル3\",\n"+
-		"      \"author\": \"著者名3\"\n"+
+		"      \"title\": \"リーダブルコード\",\n"+
+		"      \"amazonUrl\": \"https://www.amazon.co.jp/dp/4873115655\",\n"+
+		"      \"rakutenUrl\": \"https://books.rakuten.co.jp/search?g=001&sitem=リーダブルコード\"\n"+
 		"    },\n"+
 		"    {\n"+
-		"      \"title\": \"書籍タイトル4\",\n"+
-		"      \"author\": \"著者名4\"\n"+
+		"      \"title\": \"入門 監視\",\n"+
+		"      \"amazonUrl\": \"https://www.amazon.co.jp/dp/4873118646\",\n"+
+		"      \"rakutenUrl\": \"https://books.rakuten.co.jp/search?g=001&sitem=入門 監視\"\n"+
 		"    },\n"+
 		"    {\n"+
-		"      \"title\": \"書籍タイトル5\",\n"+
-		"      \"author\": \"著者名5\"\n"+
+		"      \"title\": \"プログラミング言語Go\",\n"+
+		"      \"amazonUrl\": \"https://www.amazon.co.jp/dp/4621300253\",\n"+
+		"      \"rakutenUrl\": \"https://books.rakuten.co.jp/search?g=001&sitem=プログラミング言語Go\"\n"+
 		"    }\n"+
 		"  ]\n"+
 		"}\n\n"+
@@ -241,6 +264,11 @@ func (c *GeminiClient) buildBookRecommendationPrompt(articles []*entity.Article)
 
 // Gemini API呼び出し
 func (c *GeminiClient) callAPI(ctx context.Context, prompt string) (*geminiResponse, error) {
+	return c.callAPIWithTools(ctx, prompt, true)
+}
+
+// ツールの有無を指定してGemini API呼び出し
+func (c *GeminiClient) callAPIWithTools(ctx context.Context, prompt string, includeURLContext bool) (*geminiResponse, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
@@ -256,7 +284,7 @@ func (c *GeminiClient) callAPI(ctx context.Context, prompt string) (*geminiRespo
 			}
 		}
 
-		response, err := c.makeRequest(ctx, prompt)
+		response, err := c.makeRequestWithTools(ctx, prompt, includeURLContext)
 		if err == nil {
 			return response, nil
 		}
@@ -280,6 +308,11 @@ func (c *GeminiClient) callAPI(ctx context.Context, prompt string) (*geminiRespo
 
 // 単一のAPIリクエストを送信
 func (c *GeminiClient) makeRequest(ctx context.Context, prompt string) (*geminiResponse, error) {
+	return c.makeRequestWithTools(ctx, prompt, true)
+}
+
+// ツールの有無を指定してAPIリクエストを送信
+func (c *GeminiClient) makeRequestWithTools(ctx context.Context, prompt string, includeURLContext bool) (*geminiResponse, error) {
 	reqBody := geminiRequest{
 		Contents: []geminiContent{
 			{
@@ -287,13 +320,17 @@ func (c *GeminiClient) makeRequest(ctx context.Context, prompt string) (*geminiR
 				Parts: []geminiPart{{Text: prompt}},
 			},
 		},
-		Tools: []geminiTool{
-			{URLContext: &geminiURLContext{}},
-		},
 		GenerationConfig: &geminiGenerationConfig{
 			Temperature:     0.3, // より決定論的な出力のため低く設定
 			MaxOutputTokens: 4096,
 		},
+	}
+
+	// URL Contextツールを条件付きで追加
+	if includeURLContext {
+		reqBody.Tools = []geminiTool{
+			{URLContext: &geminiURLContext{}},
+		}
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -486,8 +523,9 @@ func (c *GeminiClient) parseBookRecommendationResponse(resp *geminiResponse) ([]
 
 	var data struct {
 		Books []struct {
-			Title  string `json:"title"`
-			Author string `json:"author"`
+			Title      string `json:"title"`
+			AmazonURL  string `json:"amazonUrl"`
+			RakutenURL string `json:"rakutenUrl"`
 		} `json:"books"`
 	}
 
@@ -501,12 +539,13 @@ func (c *GeminiClient) parseBookRecommendationResponse(resp *geminiResponse) ([]
 
 	books := make([]RecommendedBook, 0, len(data.Books))
 	for i, book := range data.Books {
-		if book.Title == "" || book.Author == "" {
-			return nil, fmt.Errorf("book at index %d is missing title or author (title=%s, author=%s)", i, book.Title, book.Author)
+		if book.Title == "" {
+			return nil, fmt.Errorf("book at index %d is missing title (title=%s)", i, book.Title)
 		}
 		books = append(books, RecommendedBook{
-			Title:  book.Title,
-			Author: book.Author,
+			Title:      book.Title,
+			AmazonURL:  book.AmazonURL,
+			RakutenURL: book.RakutenURL,
 		})
 	}
 

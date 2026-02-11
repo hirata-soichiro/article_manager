@@ -7,8 +7,6 @@ export interface PurchaseLinks {
 // 書籍推薦情報
 export interface BookRecommendation {
     title: string
-    author: string
-    isbn?: string
     purchaseLinks: PurchaseLinks
 }
 

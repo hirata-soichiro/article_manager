@@ -23,14 +23,9 @@ const BookCard = memo(function BookCard({ book }: BookCardProps) {
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md hover:scale-[1.02] transition-all duration-200 flex flex-col"
         >
             {/* タイトル */}
-            <h3 className="text-base font-bold text-gray-800 mb-2 line-clamp-2 min-h-[3rem]">
+            <h3 className="text-base font-bold text-gray-800 mb-4 line-clamp-2 min-h-[3rem]">
                 {book.title}
             </h3>
-
-            {/* 著者名 */}
-            <p className="text-sm text-gray-600 mb-3 line-clamp-1">
-                {book.author}
-            </p>
 
             {/* 購入ボタン */}
             {purchaseLink ? (
@@ -65,10 +60,7 @@ const SkeletonBookCard = memo(function SkeletonBookCard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col animate-pulse">
             {/* タイトル部分 */}
             <div className="h-6 bg-gray-200 rounded mb-2"></div>
-            <div className="h-6 bg-gray-200 rounded mb-2 w-3/4"></div>
-
-            {/* 著者名部分 */}
-            <div className="h-4 bg-gray-200 rounded mb-3 w-1/2"></div>
+            <div className="h-6 bg-gray-200 rounded mb-4 w-3/4"></div>
 
             {/* ボタン部分 */}
             <div className="mt-auto h-10 bg-gray-200 rounded"></div>

@@ -14,7 +14,6 @@ import (
 
 	"article-manager/internal/infrastructure/ai"
 	"article-manager/internal/infrastructure/database"
-	"article-manager/internal/infrastructure/external"
 	applogger "article-manager/internal/infrastructure/logger"
 	"article-manager/internal/infrastructure/repository"
 	infraservice "article-manager/internal/infrastructure/service"
@@ -75,9 +74,7 @@ func main() {
 	articleGeneratorHandler := handler.NewArticleGeneratorHandler(articleGeneratorUsecase)
 
 	// 依存性注入(book recommendation)
-	googleBooksConfig := external.DefaultGoogleBooksConfig(config.GoogleBooksAPIKey)
-	googleBooksClient := external.NewGoogleBooksClient(googleBooksConfig)
-	bookRecommendationService := infraservice.NewBookRecommendationService(geminiClient, googleBooksClient)
+	bookRecommendationService := infraservice.NewBookRecommendationService(geminiClient)
 	bookRecommendationRepo := repository.NewMySQLBookRecommendationRepository(db)
 	bookRecommendationUsecase := usecase.NewBookRecommendationUsecase(articleRepo, bookRecommendationRepo, bookRecommendationService)
 	bookRecommendationHandler := handler.NewBookRecommendationHandler(bookRecommendationUsecase)

@@ -9,8 +9,6 @@ import { ApiError } from '@/lib/errors/ApiError'
 const mockBooks: BookRecommendation[] = [
     {
         title: 'リーダブルコード',
-        author: 'Dustin Boswell, Trevor Foucher',
-        isbn: '9784873115658',
         purchaseLinks: {
             amazon: 'https://www.amazon.co.jp/dp/4873115655',
             rakuten: 'https://books.rakuten.co.jp/rb/11753651/',
@@ -18,15 +16,12 @@ const mockBooks: BookRecommendation[] = [
     },
     {
         title: 'Clean Code',
-        author: 'Robert C. Martin',
-        isbn: '9780132350884',
         purchaseLinks: {
             amazon: 'https://www.amazon.co.jp/dp/0132350884',
         },
     },
     {
         title: 'Test Book Without Purchase Link',
-        author: 'Test Author',
         purchaseLinks: {},
     },
 ]
@@ -92,13 +87,6 @@ describe('BookRecommendations', () => {
                 expect(screen.getByText('リーダブルコード')).toBeInTheDocument()
                 expect(screen.getByText('Clean Code')).toBeInTheDocument()
                 expect(screen.getByText('Test Book Without Purchase Link')).toBeInTheDocument()
-
-                // 各書籍の著者名が表示されている
-                expect(
-                    screen.getByText('Dustin Boswell, Trevor Foucher')
-                ).toBeInTheDocument()
-                expect(screen.getByText('Robert C. Martin')).toBeInTheDocument()
-                expect(screen.getByText('Test Author')).toBeInTheDocument()
             })
         })
 
@@ -137,7 +125,6 @@ describe('BookRecommendations', () => {
             // 楽天のみのモックデータ
             const rakutenOnlyBook: BookRecommendation = {
                 title: '楽天限定書籍',
-                author: 'Rakuten Author',
                 purchaseLinks: {
                     rakuten: 'https://books.rakuten.co.jp/rb/12345678/',
                 },

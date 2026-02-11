@@ -32,7 +32,7 @@ export default function ArticlesPage() {
     const [isDeleting, setIsDeleting] = useState(false)
     // ページネーションの状態
     const [currentPage, setCurrentPage] = useState(1)
-    const [pageSize, setPageSize] = useState(UI_CONSTANTS.ARTICLES_PER_PAGE)
+    const [pageSize, setPageSize] = useState<number>(UI_CONSTANTS.ARTICLES_PER_PAGE)
 
     // メモ化: 検索中かどうか
     const isSearching = useMemo(() => keyword.trim().length > 0, [keyword])
