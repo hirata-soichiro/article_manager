@@ -16,6 +16,7 @@ import (
 	"article-manager/internal/infrastructure/database"
 	applogger "article-manager/internal/infrastructure/logger"
 	"article-manager/internal/infrastructure/repository"
+	infraservice "article-manager/internal/infrastructure/service"
 	"article-manager/internal/interface/handler"
 	"article-manager/internal/usecase"
 )
@@ -72,6 +73,12 @@ func main() {
 	articleGeneratorUsecase := usecase.NewArticleGeneratorUsecase(geminiClient, articleRepo, tagRepo)
 	articleGeneratorHandler := handler.NewArticleGeneratorHandler(articleGeneratorUsecase)
 
+	// 依存性注入(book recommendation)
+	bookRecommendationService := infraservice.NewBookRecommendationService(geminiClient)
+	bookRecommendationRepo := repository.NewMySQLBookRecommendationRepository(db)
+	bookRecommendationUsecase := usecase.NewBookRecommendationUsecase(articleRepo, bookRecommendationRepo, bookRecommendationService)
+	bookRecommendationHandler := handler.NewBookRecommendationHandler(bookRecommendationUsecase)
+
 	// HTTPルーターの設定
 	mux := http.NewServeMux()
 
@@ -117,6 +124,9 @@ func main() {
 
 	// タグ削除
 	mux.HandleFunc("DELETE /api/tags/{id}", extractTagID(tagHandler.DeleteTag))
+
+	// 書籍推薦取得
+	mux.HandleFunc("GET /api/book-recommendations", bookRecommendationHandler.GetBookRecommendations)
 
 	// CORSミドルウェアの設定
 	corsMiddleware := func(next http.Handler) http.Handler {
@@ -190,24 +200,26 @@ func main() {
 }
 
 type Config struct {
-	DBHost       string
-	DBPort       string
-	DBUser       string
-	DBPassword   string
-	DBName       string
-	Port         string
-	GeminiAPIKey string
+	DBHost            string
+	DBPort            string
+	DBUser            string
+	DBPassword        string
+	DBName            string
+	Port              string
+	GeminiAPIKey      string
+	GoogleBooksAPIKey string
 }
 
 func loadConfig() Config {
 	config := Config{
-		DBHost:       getEnv("DB_HOST", "localhost"),
-		DBPort:       getEnv("DB_PORT", "3306"),
-		DBUser:       getEnv("DB_USER", ""),
-		DBPassword:   getEnv("DB_PASSWORD", ""),
-		DBName:       getEnv("DB_NAME", ""),
-		Port:         getEnv("PORT", "8080"),
-		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
+		DBHost:            getEnv("DB_HOST", "localhost"),
+		DBPort:            getEnv("DB_PORT", "3306"),
+		DBUser:            getEnv("DB_USER", ""),
+		DBPassword:        getEnv("DB_PASSWORD", ""),
+		DBName:            getEnv("DB_NAME", ""),
+		Port:              getEnv("PORT", "8080"),
+		GeminiAPIKey:      getEnv("GEMINI_API_KEY", ""),
+		GoogleBooksAPIKey: getEnv("GOOGLE_BOOKS_API_KEY", ""),
 	}
 
 	// ユーザー名が設定されていない場合はエラー

@@ -1,7 +1,5 @@
 'use client'
 
-import { on } from 'events'
-import { HTMLInputElement } from 'happy-dom'
 import { useState, FormEvent, KeyboardEvent } from 'react'
 
 interface SearchBarProps {
