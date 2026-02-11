@@ -6,6 +6,7 @@ import { useArticleSearch } from '@/hooks/useArticleSearch'
 import { useTags } from '@/hooks/useTags'
 import ArticleCard from '@/components/ArticleCard'
 import SearchBar from '@/components/SearchBar'
+import BookRecommendations from '@/components/BookRecommendations'
 import dynamic from 'next/dynamic'
 import { UI_CONSTANTS } from '@/config/constants'
 
@@ -238,6 +239,9 @@ export default function ArticlesPage() {
             <div className="mb-8">
                 <SearchBar onSearch={handleSearch} disabled={loading} placeholder="例: React, TypeScript, API..." />
             </div>
+
+            {/* 書籍推薦セクション */}
+            <BookRecommendations />
 
             {/* ヘッダー部分 */}
             <div className="mb-8">
