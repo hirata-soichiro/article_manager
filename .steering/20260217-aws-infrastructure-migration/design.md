@@ -236,7 +236,35 @@ Docker Composeベースのローカル環境からAWS ECS (Fargate) + RDS構成�
 - ❌ CloudWatch Alarms削除
 - 📝 ログ保持期間: 30日 → 1日
 
-### 8. 起動/停止機能（GitHub Actions）
+### 8. Terraform実行用GitHub Actionsワークフロー
+
+**責務**:
+- ローカル環境不要でTerraformを実行
+- AWS認証情報をGitHub Secretsで安全に管理
+- インフラのプロビジョニングを自動化
+
+**実装の要点**:
+- **ワークフロー**: `.github/workflows/terraform-apply.yml`
+- **トリガー**: `workflow_dispatch`（手動実行）
+- **ステップ**:
+  1. AWS認証情報を設定（GitHub Secrets使用）
+  2. Terraformをセットアップ（hashicorp/setup-terraform action）
+  3. `terraform init`
+  4. `terraform plan`（変更内容を確認）
+  5. `terraform apply -auto-approve`（承認後に実行）
+- **必要なGitHub Secrets**:
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `AWS_REGION` (ap-northeast-1)
+  - `TF_VAR_db_master_password`（RDSパスワード）
+  - `TF_VAR_domain_name`（ドメイン名）
+
+**セキュリティ考慮**:
+- AWS認証情報はGitHub Secretsで暗号化
+- ローカル環境に認証情報を保存しない
+- terraform planの結果をログで確認してからapply
+
+### 9. 起動/停止機能（GitHub Actions）
 
 **責務**:
 - コスト最小化のための起動/停止の自動化

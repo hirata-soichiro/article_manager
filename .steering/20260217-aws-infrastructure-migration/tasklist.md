@@ -46,23 +46,26 @@
   - [x] `terraform/*.tfstate.backup` を追加
   - [x] `terraform/.terraform.lock.hcl` を除外しない (バージョン固定のため)
 
-### 1.2 AWS CLI・Terraform環境構築
+### 1.2 GitHub Secrets設定
 
-- [ ] AWS CLIがインストールされていることを確認 (`aws --version`)
-- [ ] Terraformがインストールされていることを確認 (`terraform --version`)
-  - [ ] バージョン 1.7.0以上であることを確認
-- [ ] AWS認証情報を設定 (`aws configure`)
-  - [ ] アクセスキーID、シークレットアクセスキーを設定
-  - [ ] デフォルトリージョンを `ap-northeast-1` に設定
-- [ ] AWS認証確認 (`aws sts get-caller-identity`)
+- [ ] GitHubリポジトリのSettings → Secrets and variables → Actionsにアクセス
+- [ ] 以下のSecretsを登録:
+  - [ ] `AWS_ACCESS_KEY_ID` - AWSアクセスキーID
+  - [ ] `AWS_SECRET_ACCESS_KEY` - AWSシークレットアクセスキー
+  - [ ] `AWS_REGION` - `ap-northeast-1`
+  - [ ] `TF_VAR_db_master_password` - RDSマスターパスワード（32文字、ランダム生成推奨）
+  - [ ] `TF_VAR_domain_name` - 使用するドメイン名（例: `app.example.com`）
 
-### 1.3 Terraformバックエンド設定
+### 1.3 Terraformバックエンド設定（AWS CLIで実行）
 
-- [ ] S3バケットを手動で作成 (terraform.tfstate保存用)
-  - [ ] `aws s3 mb s3://article-manager-terraform-state --region ap-northeast-1`
+- [ ] S3バケットを作成 (terraform.tfstate保存用)
+  - [ ] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
+  - [ ] バケット名: `article-manager-terraform-state`
+  - [ ] リージョン: `ap-northeast-1`
   - [ ] バージョニングを有効化
   - [ ] 暗号化を有効化
-- [ ] DynamoDBテーブルを手動で作成 (ステートロック用)
+- [ ] DynamoDBテーブルを作成 (ステートロック用)
+  - [ ] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
   - [ ] テーブル名: `article-manager-terraform-lock`
   - [ ] プライマリキー: `LockID` (String)
 - [ ] `terraform/backend.tf` を作成
@@ -86,6 +89,23 @@
   - [ ] ECRリポジトリURL
   - [ ] ECSクラスター名
   - [ ] Route 53ホストゾーンID
+
+### 1.5 Terraform実行用GitHub Actionsワークフロー作成
+
+- [ ] `.github/workflows/terraform-apply.yml` を作成
+  - [ ] トリガー: `workflow_dispatch`（手動実行）
+  - [ ] ジョブ: Terraform実行
+    - [ ] チェックアウト
+    - [ ] AWS認証情報を設定（GitHub Secrets使用）
+    - [ ] Terraformをセットアップ（hashicorp/setup-terraform@v3）
+    - [ ] `terraform init`
+    - [ ] `terraform validate`
+    - [ ] `terraform plan`
+    - [ ] `terraform apply -auto-approve`（planが成功した場合）
+  - [ ] 環境変数でTerraform変数を設定
+    - [ ] `TF_VAR_db_master_password`
+    - [ ] `TF_VAR_domain_name`
+- [ ] ワークフローファイルをコミット・プッシュ
 
 ---
 
@@ -117,13 +137,15 @@
     - [ ] インバウンド: MySQL (3306) from ECS SG
     - [ ] アウトバウンド: なし
 
-### 2.3 Terraform初期化・検証
+### 2.3 Terraform初期化・検証（GitHub Actions経由）
 
-- [ ] `terraform init` を実行して初期化
-- [ ] `terraform validate` で構文チェック
-- [ ] `terraform plan` で実行計画を確認
-- [ ] VPC、サブネット、セキュリティグループを先に適用
-  - [ ] `terraform apply -target=aws_vpc.main` などで段階的に適用
+- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [ ] ワークフローログで以下を確認:
+  - [ ] `terraform init` が成功
+  - [ ] `terraform validate` が成功
+  - [ ] `terraform plan` で実行計画を確認
+- [ ] VPC、サブネット、セキュリティグループが作成されることを確認
+  - [ ] 必要に応じて段階的に適用（terraform targetを使用）
 
 ---
 
@@ -159,9 +181,9 @@
     - [ ] セキュリティグループ: RDS用SG
     - [ ] パブリックアクセス: `false`
     - [ ] 暗号化: `true` (KMSデフォルトキー)
-- [ ] `terraform plan` で RDS構築計画を確認
-- [ ] `terraform apply` で RDS作成
-- [ ] RDSエンドポイントを確認 (`terraform output rds_endpoint`)
+- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [ ] ワークフローログで RDS作成を確認
+- [ ] AWS Management ConsoleでRDSエンドポイントを確認
 
 ### 3.3 ECR (Elastic Container Registry) 構築
 
@@ -177,8 +199,8 @@
   - [ ] ライフサイクルポリシーを定義
     - [ ] 未使用イメージを30日後に削除
     - [ ] `latest` タグは削除しない
-- [ ] `terraform apply` でECR作成
-- [ ] ECRリポジトリURLを確認 (`terraform output ecr_frontend_url`)
+- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [ ] AWS Management ConsoleでECRリポジトリURLを確認
 
 ---
 
@@ -308,10 +330,10 @@
       - [ ] セキュリティグループ: ECS SG
       - [ ] **パブリックIPの割り当て: `true`**（重要）
 
-### 5.5 Terraform Apply - ECS構築
+### 5.5 Terraform Apply - ECS構築（GitHub Actions経由）
 
-- [ ] `terraform plan` でECS構築計画を確認
-- [ ] `terraform apply` で全リソースを作成
+- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [ ] ワークフローログでECS構築を確認
 - [ ] ECSサービスのタスクが正常に起動することを確認
   - [ ] AWS Management Console → ECS → Clusters → `article-manager-cluster`
   - [ ] サービスのタスク数が `1/1 RUNNING` になることを確認
@@ -545,8 +567,8 @@
 ### 11.1 インフラテスト
 
 - [ ] Terraform構成が正しいことを確認
-  - [ ] `terraform validate`
-  - [ ] `terraform plan` でエラーがないこと
+  - [ ] GitHub Actionsワークフローで `terraform validate` が成功
+  - [ ] GitHub Actionsワークフローで `terraform plan` がエラーなく完了
 - [ ] すべてのAWSリソースが正しく作成されていることを確認
   - [ ] VPC、サブネット、セキュリティグループ
   - [ ] RDS（Single-AZ、db.t4g.micro）
