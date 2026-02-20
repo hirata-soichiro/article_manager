@@ -1,14 +1,3 @@
-# Resource renaming - リソース名変更時の削除/作成を防ぐ
-moved {
-  from = aws_subnet.private
-  to   = aws_subnet.private_1a
-}
-
-moved {
-  from = aws_route_table_association.private
-  to   = aws_route_table_association.private_1a
-}
-
 # VPC
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
