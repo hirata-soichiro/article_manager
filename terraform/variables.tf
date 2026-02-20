@@ -22,26 +22,28 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "db_master_password" {
-  description = "Master password for RDS MySQL database"
-  type        = string
-  sensitive   = true
-}
+# Phase 3で使用開始: RDS・Secrets Manager構築時に有効化
+# variable "db_master_password" {
+#   description = "Master password for RDS MySQL database"
+#   type        = string
+#   sensitive   = true
+# }
 
-variable "gemini_api_key" {
-  description = "Google Gemini API key for AI features"
-  type        = string
-  sensitive   = true
-}
+# variable "gemini_api_key" {
+#   description = "Google Gemini API key for AI features"
+#   type        = string
+#   sensitive   = true
+# }
 
-variable "google_books_api_key" {
-  description = "Google Books API key for book recommendations"
-  type        = string
-  sensitive   = true
-}
+# variable "google_books_api_key" {
+#   description = "Google Books API key for book recommendations"
+#   type        = string
+#   sensitive   = true
+# }
 
-variable "domain_name" {
-  description = "Domain name for the application"
-  type        = string
-  default     = ""
-}
+# Phase 6で使用開始: Route 53設定時に有効化
+# variable "domain_name" {
+#   description = "Domain name for the application"
+#   type        = string
+#   default     = ""
+# }
