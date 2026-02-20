@@ -6,3 +6,9 @@
 
 # context7の利用方法
 claudeプロンプトで、最後に'use context7'と付与するだけ
+
+# 将来実装したいこと
+・auth認証
+・opentelemetry
+・本推薦機能の見直し
+・マイクロサービス化
