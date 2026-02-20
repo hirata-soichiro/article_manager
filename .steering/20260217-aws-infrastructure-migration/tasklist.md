@@ -101,10 +101,7 @@
   - [x] 環境名 (`environment` = "production")
   - [x] AWS リージョン (`aws_region`)
   - [x] VPC CIDR (`vpc_cidr` = "10.0.0.0/16")
-  - [x] RDSマスターパスワード (`db_master_password` - sensitive)
-  - [x] Gemini APIキー (`gemini_api_key` - sensitive)
-  - [x] Google Books APIキー (`google_books_api_key` - sensitive)
-  - [x] ドメイン名 (`domain_name`)
+  - [x] ドメイン名 (`domain_name` - Phase 6で有効化)
 
 ### 1.7 Terraform実行用GitHub Actionsワークフロー作成
 
@@ -168,29 +165,29 @@
 
 ## Phase 3: RDS・ECR・Secrets Manager構築 (Week 1, Day 6-7)
 
-### 3.0 GitHub Secrets設定（Phase 3: RDS・API関連）
+### 3.0 Parameter Store手動設定（事前準備）
 
-- [ ] GitHubリポジトリのSettings → Secrets and variables → Actionsにアクセス
-- [ ] 以下のSecretsを追加登録:
-  - [ ] `TF_VAR_db_master_password` - RDSマスターパスワード（32文字、ランダム生成推奨、特殊文字含む）
-  - [ ] `TF_VAR_gemini_api_key` - Gemini APIキー
-  - [ ] `TF_VAR_google_books_api_key` - Google Books APIキー
+- [x] AWS Management ConsoleまたはAWS CLIでParameter Storeにアクセス
+- [x] 機密情報（SecureString型）を作成
+  - [x] `/article-manager/db/admin-password` - `.env`の`MYSQL_ROOT_PASSWORD`
+  - [x] `/article-manager/db/app-password` - `.env`の`MYSQL_PASSWORD`
+  - [x] `/article-manager/api/gemini-api-key` - `.env`の`GEMINI_API_KEY`
+  - [x] `/article-manager/api/google-books-api-key` - `.env`の`GOOGLE_BOOKS_API_KEY`
 
-### 3.1 Secrets Manager設定
+### 3.1 Terraform - Parameter Store参照設定
 
-- [ ] `terraform/secrets.tf` を作成
-  - [ ] RDSマスターパスワードをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/db/password`
-    - [ ] ランダムパスワード生成 (32文字、特殊文字含む)
-  - [ ] Gemini APIキーをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/api/gemini-api-key`
-  - [ ] Google Books APIキーをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/api/google-books-api-key`
-  - [ ] Systems Manager Parameter Storeに非機密情報を保存
+- [ ] `terraform/parameters.tf` を作成
+  - [ ] 機密情報（SecureString）をdata sourceで参照
+    - [ ] `/article-manager/db/admin-password`
+    - [ ] `/article-manager/db/app-password`
+    - [ ] `/article-manager/api/gemini-api-key`
+    - [ ] `/article-manager/api/google-books-api-key`
+  - [ ] 非機密情報をTerraformで作成
     - [ ] `/article-manager/db/name` = "article_manager"
-    - [ ] `/article-manager/db/user` = "admin"
+    - [ ] `/article-manager/db/admin-user` = "admin"
+    - [ ] `/article-manager/db/app-user` = "article_user"
 
-### 3.2 RDS for MySQL構築（Single-AZ、最小構成）
+### 3.2 RDS for MySQL構築
 
 - [ ] `terraform/rds.tf` を作成
   - [ ] DBサブネットグループを定義 (プライベートサブネット)
@@ -198,11 +195,11 @@
     - [ ] インスタンスクラス: `db.t4g.micro`
     - [ ] エンジン: `mysql` バージョン `8.0`
     - [ ] ストレージ: `gp3`, 20 GB
-    - [ ] **Multi-AZ: `false`**（Single-AZ、コスト削減）
-    - [ ] 自動バックアップ: `true` (保持期間**1日**)
+    - [ ] Multi-AZ: `false`
+    - [ ] 自動バックアップ: `true` (保持期間1日)
     - [ ] データベース名: `article_manager`
     - [ ] マスターユーザー名: `admin`
-    - [ ] パスワード: Secrets Managerから取得
+    - [ ] パスワード: Parameter Storeから取得 (`aws_ssm_parameter.db_admin_password.value`)
     - [ ] セキュリティグループ: RDS用SG
     - [ ] パブリックアクセス: `false`
     - [ ] 暗号化: `true` (KMSデフォルトキー)
@@ -281,16 +278,16 @@
   - [ ] ECSタスク実行ロール (Task Execution Role) を定義
     - [ ] `ecs-tasks.amazonaws.com` を信頼エンティティに設定
     - [ ] ポリシー: `AmazonECSTaskExecutionRolePolicy` をアタッチ
-    - [ ] ポリシー: Secrets Manager読み取り権限を追加
-    - [ ] ポリシー: Parameter Store読み取り権限を追加
+    - [ ] ポリシー: Parameter Store読み取り権限を追加（`ssm:GetParameters`, `ssm:GetParameter`）
+    - [ ] ポリシー: KMS復号権限を追加（SecureString復号用、`kms:Decrypt`）
   - [ ] ECSタスクロール (Task Role) を定義
     - [ ] CloudWatch Logs書き込み権限
 
-### 5.2 CloudWatch Logsグループ作成（最小構成）
+### 5.2 CloudWatch Logsグループ作成
 
 - [ ] `terraform/cloudwatch.tf` を作成
   - [ ] アプリケーション用ロググループ `/ecs/article-manager-app`
-    - [ ] 保持期間: **1日**（コスト最小化）
+    - [ ] 保持期間: 1日
   - [ ] ~~CloudWatch Metrics~~（不要: コスト削減）
   - [ ] ~~CloudWatch Alarms~~（不要: コスト削減）
 
@@ -308,14 +305,15 @@
       - [ ] イメージ: ECR API URL
       - [ ] ポートマッピング: `8080`
       - [ ] ログ設定: CloudWatch Logs (`/ecs/article-manager-app`)
-      - [ ] 環境変数 (Secrets Manager / Parameter Storeから取得):
-        - [ ] `DB_HOST`
-        - [ ] `DB_NAME`
-        - [ ] `DB_USER`
-        - [ ] `DB_PASSWORD`
-        - [ ] `GEMINI_API_KEY`
-        - [ ] `GOOGLE_BOOKS_API_KEY`
-        - [ ] `PORT=8080`
+      - [ ] 環境変数（非機密情報）:
+        - [ ] `DB_HOST` - RDSエンドポイントを直接指定
+        - [ ] `PORT=8080` - 環境変数として直接指定
+      - [ ] シークレット (Parameter Storeから取得、`secrets`フィールド使用):
+        - [ ] `DB_NAME` - `arn:aws:ssm:region:account:parameter/article-manager/db/name`
+        - [ ] `DB_USER` - `arn:aws:ssm:region:account:parameter/article-manager/db/app-user` ← **article_user**
+        - [ ] `DB_PASSWORD` - `arn:aws:ssm:region:account:parameter/article-manager/db/app-password` ← **SecureString**
+        - [ ] `GEMINI_API_KEY` - `arn:aws:ssm:region:account:parameter/article-manager/api/gemini-api-key` ← **SecureString**
+        - [ ] `GOOGLE_BOOKS_API_KEY` - `arn:aws:ssm:region:account:parameter/article-manager/api/google-books-api-key` ← **SecureString**
     - [ ] タスク実行ロール: 上記で作成したIAMロール
   - [ ] フロントエンドタスク定義を作成
     - [ ] ファミリー名: `article-manager-frontend`
@@ -331,7 +329,7 @@
         - [ ] `NEXT_PUBLIC_API_URL` = `http://localhost:8080`（同一タスク内通信）
     - [ ] タスク実行ロール: 上記で作成したIAMロール
 
-### 5.4 ECSサービス作成（パブリックIP割り当て）
+### 5.4 ECSサービス作成
 
 - [ ] `terraform/ecs.tf` に ECSサービスを追加
   - [ ] バックエンドECSサービスを定義
@@ -341,9 +339,9 @@
     - [ ] 起動タイプ: `FARGATE`
     - [ ] Desired Count: 1（固定、Auto Scaling なし）
     - [ ] ネットワーク設定:
-      - [ ] サブネット: **パブリックサブネット**
+      - [ ] サブネット: パブリックサブネット
       - [ ] セキュリティグループ: ECS SG
-      - [ ] **パブリックIPの割り当て: `true`**（重要）
+      - [ ] パブリックIPの割り当て: `true`
   - [ ] フロントエンドECSサービスを定義
     - [ ] サービス名: `article-manager-frontend-service`
     - [ ] クラスター: `article-manager-cluster`
@@ -351,9 +349,9 @@
     - [ ] 起動タイプ: `FARGATE`
     - [ ] Desired Count: 1（固定）
     - [ ] ネットワーク設定:
-      - [ ] サブネット: **パブリックサブネット**
+      - [ ] サブネット: パブリックサブネット
       - [ ] セキュリティグループ: ECS SG
-      - [ ] **パブリックIPの割り当て: `true`**（重要）
+      - [ ] パブリックIPの割り当て: `true`
 
 ### 5.5 Terraform Apply - ECS構築（GitHub Actions経由）
 
@@ -454,11 +452,42 @@
 - [ ] S3バケットを削除
 - [ ] ローカルのdumpファイルを削除
 
-### 7.6 ECSタスクからRDS接続テスト
+### 7.6 アプリケーション用ユーザー（article_user）作成
+
+- [ ] EC2インスタンスからRDSにadminユーザーで接続
+  - [ ] `mysql -h <rds-endpoint> -u admin -p article_manager`
+- [ ] アプリケーション用ユーザーを作成
+  - [ ] `CREATE USER 'article_user'@'%' IDENTIFIED BY '<app-password>';`
+  - [ ] パスワードは`.env`の`MYSQL_PASSWORD`（`hEKLvsNNXTmGGEq1`）を使用
+- [ ] 必要最小限の権限を付与
+  - [ ] `GRANT SELECT, INSERT, UPDATE, DELETE ON article_manager.* TO 'article_user'@'%';`
+  - [ ] `GRANT CREATE, ALTER, DROP, INDEX ON article_manager.* TO 'article_user'@'%';`
+  - [ ] `FLUSH PRIVILEGES;`
+- [ ] article_userで接続テスト
+  - [ ] `mysql -h <rds-endpoint> -u article_user -p article_manager`
+  - [ ] `SELECT * FROM articles LIMIT 1;` でデータ取得確認
+
+**SQL実行例**:
+```sql
+-- article_user作成
+CREATE USER 'article_user'@'%' IDENTIFIED BY 'hEKLvsNNXTmGGEq1';
+
+-- 権限付与
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX
+  ON article_manager.* TO 'article_user'@'%';
+
+FLUSH PRIVILEGES;
+
+-- 確認
+SHOW GRANTS FOR 'article_user'@'%';
+```
+
+### 7.7 ECSタスクからRDS接続テスト（article_user使用）
 
 - [ ] CloudWatch Logsでバックエンドログを確認
 - [ ] ブラウザで記事一覧ページにアクセス
   - [ ] RDSから正しくデータが取得されることを確認
+  - [ ] article_userでの接続が成功していることを確認
 
 ---
 
