@@ -15,26 +15,30 @@ resource "aws_db_parameter_group" "main" {
   name   = "${var.project_name}-db-parameter-group"
   family = "mysql8.0"
 
-  # Character Set Settings
+  # Character Set Settings (Dynamic - can be applied immediately)
   parameter {
-    name  = "character_set_server"
-    value = "utf8mb4"
+    name         = "character_set_server"
+    value        = "utf8mb4"
+    apply_method = "immediate"
   }
 
   parameter {
-    name  = "collation_server"
-    value = "utf8mb4_unicode_ci"
+    name         = "collation_server"
+    value        = "utf8mb4_unicode_ci"
+    apply_method = "immediate"
   }
 
-  # Full-Text Search Settings
+  # Full-Text Search Settings (Static - requires reboot)
   parameter {
-    name  = "innodb_ft_min_token_size"
-    value = "2"
+    name         = "innodb_ft_min_token_size"
+    value        = "2"
+    apply_method = "pending-reboot"
   }
 
   parameter {
-    name  = "ft_min_word_len"
-    value = "2"
+    name         = "ft_min_word_len"
+    value        = "2"
+    apply_method = "pending-reboot"
   }
 
   tags = {
