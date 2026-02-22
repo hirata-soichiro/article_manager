@@ -176,53 +176,63 @@
 
 ### 3.1 Terraform - Parameter Store参照設定
 
-- [ ] `terraform/parameters.tf` を作成
-  - [ ] 機密情報（SecureString）をdata sourceで参照
-    - [ ] `/article-manager/db/admin-password`
-    - [ ] `/article-manager/db/app-password`
-    - [ ] `/article-manager/api/gemini-api-key`
-    - [ ] `/article-manager/api/google-books-api-key`
-  - [ ] 非機密情報をTerraformで作成
-    - [ ] `/article-manager/db/name` = "article_manager"
-    - [ ] `/article-manager/db/admin-user` = "admin"
-    - [ ] `/article-manager/db/app-user` = "article_user"
+- [x] `terraform/parameters.tf` を作成
+  - [x] 機密情報（SecureString）をdata sourceで参照
+    - [x] `/article-manager/db/admin-password`
+    - [x] `/article-manager/db/app-password`
+    - [x] `/article-manager/api/gemini-api-key`
+    - [x] `/article-manager/api/google-books-api-key`
+  - [x] 非機密情報をTerraformで作成
+    - [x] `/article-manager/db/name` = "article_manager"
+    - [x] `/article-manager/db/admin-user` = "admin"
+    - [x] `/article-manager/db/app-user` = "article_user"
 
-### 3.2 RDS for MySQL構築
+### 3.2 RDS Parameter Group作成
 
-- [ ] `terraform/rds.tf` を作成
-  - [ ] DBサブネットグループを定義 (プライベートサブネット)
-  - [ ] RDSインスタンスを定義
-    - [ ] インスタンスクラス: `db.t4g.micro`
-    - [ ] エンジン: `mysql` バージョン `8.0`
-    - [ ] ストレージ: `gp3`, 20 GB
-    - [ ] Multi-AZ: `false`
-    - [ ] 自動バックアップ: `true` (保持期間1日)
-    - [ ] データベース名: `article_manager`
-    - [ ] マスターユーザー名: `admin`
-    - [ ] パスワード: Parameter Storeから取得 (`aws_ssm_parameter.db_admin_password.value`)
-    - [ ] セキュリティグループ: RDS用SG
-    - [ ] パブリックアクセス: `false`
-    - [ ] 暗号化: `true` (KMSデフォルトキー)
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] ワークフローログで RDS作成を確認
-- [ ] AWS Management ConsoleでRDSエンドポイントを確認
+- [x] `terraform/rds.tf` にパラメータグループを追加
+  - [x] `character_set_server` = `utf8mb4`
+  - [x] `collation_server` = `utf8mb4_unicode_ci`
+  - [x] `innodb_ft_min_token_size` = `2`
+  - [x] `ft_min_word_len` = `2`
+  - [x] 注: `[client]`と`[mysql]`セクションの文字セット設定はRDSパラメータグループでは不可。アプリケーション接続文字列で`charset=utf8mb4`を指定する
 
-### 3.3 ECR (Elastic Container Registry) 構築
+### 3.3 RDS for MySQL構築
 
-- [ ] `terraform/ecr.tf` を作成
-  - [ ] フロントエンド用ECRリポジトリを定義
-    - [ ] リポジトリ名: `article-manager-frontend`
-    - [ ] イメージタグの可変性: `MUTABLE`
-    - [ ] スキャン設定: オンプッシュスキャン有効化
-  - [ ] バックエンド用ECRリポジトリを定義
-    - [ ] リポジトリ名: `article-manager-api`
-    - [ ] イメージタグの可変性: `MUTABLE`
-    - [ ] スキャン設定: オンプッシュスキャン有効化
-  - [ ] ライフサイクルポリシーを定義
-    - [ ] 未使用イメージを30日後に削除
-    - [ ] `latest` タグは削除しない
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] AWS Management ConsoleでECRリポジトリURLを確認
+- [x] `terraform/rds.tf` を作成（または既存ファイルに追加）
+  - [x] DBサブネットグループを定義 (プライベートサブネット)
+  - [x] RDSインスタンスを定義
+    - [x] インスタンスクラス: `db.t4g.micro`
+    - [x] エンジン: `mysql` バージョン `8.0`
+    - [x] ストレージ: `gp3`, 20 GB
+    - [x] Multi-AZ: `false`
+    - [x] 自動バックアップ: `false` (保持期間0日)
+    - [x] データベース名: `article_manager`
+    - [x] マスターユーザー名: `admin`
+    - [x] パスワード: Parameter Storeから取得 (`aws_ssm_parameter.db_admin_password.value`)
+    - [x] セキュリティグループ: RDS用SG
+    - [x] パブリックアクセス: `false`
+    - [x] 暗号化: `true` (KMSデフォルトキー)
+    - [x] パラメータグループ: カスタムパラメータグループを使用
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] ワークフローログで RDS作成を確認
+- [x] AWS Management ConsoleでRDSエンドポイントを確認
+
+### 3.4 ECR (Elastic Container Registry) 構築
+
+- [x] `terraform/ecr.tf` を作成
+  - [x] フロントエンド用ECRリポジトリを定義
+    - [x] リポジトリ名: `article-manager-frontend`
+    - [x] イメージタグの可変性: `MUTABLE`
+    - [x] スキャン設定: オンプッシュスキャン有効化
+  - [x] バックエンド用ECRリポジトリを定義
+    - [x] リポジトリ名: `article-manager-api`
+    - [x] イメージタグの可変性: `MUTABLE`
+    - [x] スキャン設定: オンプッシュスキャン有効化
+  - [x] ライフサイクルポリシーを定義
+    - [x] 未使用イメージを30日後に削除
+    - [x] `latest` タグは削除しない
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] AWS Management ConsoleでECRリポジトリURLを確認
 
 ---
 

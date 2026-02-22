@@ -10,6 +10,40 @@ resource "aws_db_subnet_group" "main" {
   }
 }
 
+# DB Parameter Group
+resource "aws_db_parameter_group" "main" {
+  name   = "${var.project_name}-db-parameter-group"
+  family = "mysql8.0"
+
+  # Character Set Settings
+  parameter {
+    name  = "character_set_server"
+    value = "utf8mb4"
+  }
+
+  parameter {
+    name  = "collation_server"
+    value = "utf8mb4_unicode_ci"
+  }
+
+  # Full-Text Search Settings
+  parameter {
+    name  = "innodb_ft_min_token_size"
+    value = "2"
+  }
+
+  parameter {
+    name  = "ft_min_word_len"
+    value = "2"
+  }
+
+  tags = {
+    Name        = "${var.project_name}-db-parameter-group"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
 # RDS MySQL Instance
 resource "aws_db_instance" "main" {
   identifier = "${var.project_name}-db"
@@ -34,6 +68,9 @@ resource "aws_db_instance" "main" {
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
   publicly_accessible    = false
+
+  # Parameter Group
+  parameter_group_name = aws_db_parameter_group.main.name
 
   # Backup
   backup_retention_period = 0
