@@ -19,10 +19,20 @@ FROM alpine:3.23
 # CA証明書を追加（HTTPS通信用）
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+# 非rootユーザーを作成
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
+
+WORKDIR /home/appuser
 
 # ビルドステージからバイナリをコピー
 COPY --from=builder /app/server .
+
+# バイナリの所有権を変更
+RUN chown appuser:appuser server
+
+# 非rootユーザーに切り替え
+USER appuser
 
 # ポート8080を公開
 EXPOSE 8080
