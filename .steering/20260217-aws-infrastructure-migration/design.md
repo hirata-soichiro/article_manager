@@ -240,28 +240,32 @@ Docker Composeベースのローカル環境からAWS ECS (Fargate) + RDS構成�
 
 **責務**:
 - ローカル環境不要でTerraformを実行
-- AWS認証情報をGitHub Secretsで安全に管理
+- OIDC方式でAWSに安全に認証
 - インフラのプロビジョニングを自動化
 
 **実装の要点**:
 - **ワークフロー**: `.github/workflows/terraform-apply.yml`
 - **トリガー**: `workflow_dispatch`（手動実行）
+- **認証方式**: OpenID Connect (OIDC) - 2026年推奨のベストプラクティス
 - **ステップ**:
-  1. AWS認証情報を設定（GitHub Secrets使用）
+  1. OIDC方式でAWS認証（`aws-actions/configure-aws-credentials@v4`）
   2. Terraformをセットアップ（hashicorp/setup-terraform action）
   3. `terraform init`
   4. `terraform plan`（変更内容を確認）
   5. `terraform apply -auto-approve`（承認後に実行）
 - **必要なGitHub Secrets**:
-  - `AWS_ACCESS_KEY_ID`
-  - `AWS_SECRET_ACCESS_KEY`
-  - `AWS_REGION` (ap-northeast-1)
+  - `AWS_ROLE_ARN` - GitHub Actions用IAMロールのARN
+  - `AWS_REGION` - ap-northeast-1
   - `TF_VAR_db_master_password`（RDSパスワード）
+  - `TF_VAR_gemini_api_key`（Gemini APIキー）
+  - `TF_VAR_google_books_api_key`（Google Books APIキー）
   - `TF_VAR_domain_name`（ドメイン名）
 
 **セキュリティ考慮**:
-- AWS認証情報はGitHub Secretsで暗号化
-- ローカル環境に認証情報を保存しない
+- OIDC方式により、長期的なアクセスキー不要（セキュリティベストプラクティス）
+- 一時的な認証情報のみ使用（ワークフロー実行時に自動発行・自動失効）
+- 特定のリポジトリ・ブランチからのみアクセス可能（IAMロールの信頼ポリシーで制限）
+- アクセスキーのローテーション不要
 - terraform planの結果をログで確認してからapply
 
 ### 9. 起動/停止機能（GitHub Actions）
@@ -528,7 +532,7 @@ article_manager/
 ### Phase 1: 基盤構築 (Week 1)
 
 1. **Terraformセットアップ**
-   - S3バックエンド作成 (terraform.tfstate保存用)
+   - S3バックエンド作成 (terraform.tfstate保存用、S3ネイティブステートロック使用)
    - VPCネットワーク構築（Single-AZ、シンプル構成）
    - セキュリティグループ作成
 2. **RDS構築**

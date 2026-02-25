@@ -46,65 +46,80 @@
   - [x] `terraform/*.tfstate.backup` を追加
   - [x] `terraform/.terraform.lock.hcl` を除外しない (バージョン固定のため)
 
-### 1.2 GitHub Secrets設定
+### 1.2 OIDC Identity Provider作成（手動）
 
-- [ ] GitHubリポジトリのSettings → Secrets and variables → Actionsにアクセス
-- [ ] 以下のSecretsを登録:
-  - [ ] `AWS_ACCESS_KEY_ID` - AWSアクセスキーID
-  - [ ] `AWS_SECRET_ACCESS_KEY` - AWSシークレットアクセスキー
-  - [ ] `AWS_REGION` - `ap-northeast-1`
-  - [ ] `TF_VAR_db_master_password` - RDSマスターパスワード（32文字、ランダム生成推奨）
-  - [ ] `TF_VAR_domain_name` - 使用するドメイン名（例: `app.example.com`）
+- [x] AWS Management Consoleにログイン（ルートユーザーまたは管理者権限のあるIAMユーザー）
+- [x] IAM → Identity providers → Add providerを選択
+  - [x] プロバイダータイプ: `OpenID Connect`
+  - [x] プロバイダーURL: `https://token.actions.githubusercontent.com`
+  - [x] Audience: `sts.amazonaws.com`
+  - [x] "Add provider"をクリック
+- [x] 作成されたプロバイダーのARNをメモ（後で使用）
 
-### 1.3 Terraformバックエンド設定（AWS CLIで実行）
+### 1.3 GitHub Actions用IAMロール作成（手動）
 
-- [ ] S3バケットを作成 (terraform.tfstate保存用)
-  - [ ] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
-  - [ ] バケット名: `article-manager-terraform-state`
-  - [ ] リージョン: `ap-northeast-1`
-  - [ ] バージョニングを有効化
-  - [ ] 暗号化を有効化
-- [ ] DynamoDBテーブルを作成 (ステートロック用)
-  - [ ] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
-  - [ ] テーブル名: `article-manager-terraform-lock`
-  - [ ] プライマリキー: `LockID` (String)
-- [ ] `terraform/backend.tf` を作成
-  - [ ] S3バケット名とDynamoDBテーブル名を定義
+- [x] IAM → Roles → Create roleを選択
+- [x] Trusted entity type: `Web identity`を選択
+  - [x] Identity provider: 先ほど作成したOIDCプロバイダーを選択
+  - [x] Audience: `sts.amazonaws.com`
+  - [x] GitHub organization: 自分のGitHubユーザー名または組織名
+  - [x] GitHub repository: `article_manager`（リポジトリ名）
+  - [x] GitHub branch: `main`（または`feature/infra`）
+- [x] 権限設定（以下のいずれかを選択）
+  - [x] オプションA（簡単・学習用）: `AdministratorAccess`ポリシーをアタッチ
+  - [x] オプションB（推奨・本番用）: カスタムポリシーで最小権限を設定
+    - [x] 必要な権限: EC2, VPC, RDS, ECS, ECR, S3, Secrets Manager, Route53, IAM（ロール作成用）, CloudWatch Logs, Systems Manager
+- [x] ロール名: `github-actions-terraform-role`
+- [x] ロールARNをメモ（GitHub Secretsに登録する）
 
-### 1.4 Terraform基本設定ファイル
+### 1.4 GitHub Secrets設定（Phase 1: OIDC用）
 
-- [ ] `terraform/provider.tf` を作成
-  - [ ] AWS Providerバージョンを `~> 5.0` に設定
-  - [ ] リージョンを `ap-northeast-1` に設定
-- [ ] `terraform/variables.tf` を作成
-  - [ ] プロジェクト名 (`project_name` = "article-manager")
-  - [ ] 環境名 (`environment` = "production")
-  - [ ] AWS リージョン (`aws_region`)
-  - [ ] VPC CIDR (`vpc_cidr` = "10.0.0.0/16")
-  - [ ] RDSマスターパスワード (`db_master_password` - sensitive)
-  - [ ] ドメイン名 (`domain_name`)
-- [ ] `terraform/terraform.tfvars.example` を作成
-- [ ] `terraform/outputs.tf` を作成
-  - [ ] RDSエンドポイント
-  - [ ] ECRリポジトリURL
-  - [ ] ECSクラスター名
-  - [ ] Route 53ホストゾーンID
+- [x] GitHubリポジトリのSettings → Secrets and variables → Actionsにアクセス
+- [x] 以下のSecretsを登録:
+  - [x] `AWS_ROLE_ARN` - タスク1.3で作成したIAMロールのARN
+  - [x] `AWS_REGION` - `ap-northeast-1`
 
-### 1.5 Terraform実行用GitHub Actionsワークフロー作成
+### 1.5 Terraformバックエンド設定（S3ネイティブロック使用）
 
-- [ ] `.github/workflows/terraform-apply.yml` を作成
-  - [ ] トリガー: `workflow_dispatch`（手動実行）
-  - [ ] ジョブ: Terraform実行
-    - [ ] チェックアウト
-    - [ ] AWS認証情報を設定（GitHub Secrets使用）
-    - [ ] Terraformをセットアップ（hashicorp/setup-terraform@v3）
-    - [ ] `terraform init`
-    - [ ] `terraform validate`
-    - [ ] `terraform plan`
-    - [ ] `terraform apply -auto-approve`（planが成功した場合）
-  - [ ] 環境変数でTerraform変数を設定
-    - [ ] `TF_VAR_db_master_password`
-    - [ ] `TF_VAR_domain_name`
+- [x] S3バケットを作成 (terraform.tfstate保存用)
+  - [x] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
+  - [x] バケット名: `article-manager-terraform-state`
+  - [x] リージョン: `ap-northeast-1`
+  - [x] バージョニングを有効化
+  - [x] 暗号化を有効化
+- [x] `terraform/backend.tf` を作成
+  - [x] S3バケット名を定義
+  - [x] `use_lockfile = true` を設定（S3ネイティブステートロック）
+
+### 1.6 Terraform基本設定ファイル
+
+- [x] `terraform/provider.tf` を作成
+  - [x] AWS Providerバージョンを `~> 5.0` に設定
+  - [x] リージョンを `ap-northeast-1` に設定
+- [x] `terraform/variables.tf` を作成
+  - [x] プロジェクト名 (`project_name` = "article-manager")
+  - [x] 環境名 (`environment` = "production")
+  - [x] AWS リージョン (`aws_region`)
+  - [x] VPC CIDR (`vpc_cidr` = "10.0.0.0/16")
+  - [x] ドメイン名 (`domain_name` - Phase 6で有効化)
+
+### 1.7 Terraform実行用GitHub Actionsワークフロー作成
+
+- [x] `.github/workflows/terraform-apply.yml` を作成
+  - [x] トリガー: `workflow_dispatch`（手動実行）
+  - [x] ジョブ: Terraform実行
+    - [x] `permissions: id-token: write, contents: read` を設定（OIDC用）
+    - [x] チェックアウト
+    - [x] AWS認証情報を設定（OIDC方式）
+      - [x] `aws-actions/configure-aws-credentials@v6` を使用（v4から最新版に更新）
+      - [x] `role-to-assume: ${{ secrets.AWS_ROLE_ARN }}` を指定
+      - [x] `aws-region: ${{ secrets.AWS_REGION }}` を指定
+    - [x] Terraformをセットアップ（hashicorp/setup-terraform@v3）
+    - [x] `terraform fmt -check` を追加（コードスタイルチェック）
+    - [x] `terraform init`
+    - [x] `terraform validate`
+    - [x] `terraform plan`
+    - [x] `terraform apply -auto-approve`（planが成功した場合）
 - [ ] ワークフローファイルをコミット・プッシュ
 
 ---
@@ -113,94 +128,111 @@
 
 ### 2.1 VPCネットワーク構築（Single-AZ、シンプル構成）
 
-- [ ] `terraform/vpc.tf` を作成
-  - [ ] VPCリソースを定義 (CIDR: `10.0.0.0/16`)
-  - [ ] パブリックサブネット (ap-northeast-1a)
-    - [ ] `10.0.1.0/24`
-  - [ ] プライベートサブネット (ap-northeast-1a)
-    - [ ] `10.0.11.0/24`
-  - [ ] インターネットゲートウェイを定義
-  - [ ] ルートテーブルを定義
-    - [ ] パブリックサブネット用 (0.0.0.0/0 → Internet Gateway)
-    - [ ] プライベートサブネット用 (デフォルトのローカルルートのみ)
-  - [ ] ~~NAT Gateway~~（不要: ECSをパブリックサブネットに配置するため）
+- [x] `terraform/vpc.tf` を作成
+  - [x] VPCリソースを定義 (CIDR: `10.0.0.0/16`)
+  - [x] パブリックサブネット (ap-northeast-1a)
+    - [x] `10.0.1.0/24`
+  - [x] プライベートサブネット (ap-northeast-1a)
+    - [x] `10.0.11.0/24`
+  - [x] インターネットゲートウェイを定義
+  - [x] ルートテーブルを定義
+    - [x] パブリックサブネット用 (0.0.0.0/0 → Internet Gateway)
+    - [x] プライベートサブネット用 (デフォルトのローカルルートのみ)
 
 ### 2.2 セキュリティグループ定義
 
-- [ ] `terraform/security-groups.tf` を作成
-  - [ ] ECSタスク用セキュリティグループ
-    - [ ] インバウンド: HTTP (80) from 0.0.0.0/0
-    - [ ] インバウンド: ポート3000 from 0.0.0.0/0 (Frontend直接アクセス用、オプション)
-    - [ ] インバウンド: ポート8080 from 0.0.0.0/0 (Backend直接アクセス用、オプション)
-    - [ ] アウトバウンド: All traffic
-  - [ ] RDS用セキュリティグループ
-    - [ ] インバウンド: MySQL (3306) from ECS SG
-    - [ ] アウトバウンド: なし
+- [x] `terraform/security-groups.tf` を作成
+  - [x] ECSタスク用セキュリティグループ
+    - [x] インバウンド: HTTP (80) from 0.0.0.0/0
+    - [x] インバウンド: ポート3000 from 0.0.0.0/0 (Frontend直接アクセス用、オプション)
+    - [x] インバウンド: ポート8080 from 0.0.0.0/0 (Backend直接アクセス用、オプション)
+    - [x] アウトバウンド: All traffic
+  - [x] RDS用セキュリティグループ
+    - [x] インバウンド: MySQL (3306) from ECS SG
+    - [x] アウトバウンド: なし
 
 ### 2.3 Terraform初期化・検証（GitHub Actions経由）
 
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] ワークフローログで以下を確認:
-  - [ ] `terraform init` が成功
-  - [ ] `terraform validate` が成功
-  - [ ] `terraform plan` で実行計画を確認
-- [ ] VPC、サブネット、セキュリティグループが作成されることを確認
-  - [ ] 必要に応じて段階的に適用（terraform targetを使用）
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] ワークフローログで以下を確認:
+  - [x] `terraform init` が成功
+  - [x] `terraform validate` が成功
+  - [x] `terraform plan` で実行計画を確認
+- [x] VPC、サブネット、セキュリティグループが作成されることを確認
+  - [x] 必要に応じて段階的に適用（terraform targetを使用）
 
 ---
 
 ## Phase 3: RDS・ECR・Secrets Manager構築 (Week 1, Day 6-7)
 
-### 3.1 Secrets Manager設定
+### 3.0 Parameter Store手動設定（事前準備）
 
-- [ ] `terraform/secrets.tf` を作成
-  - [ ] RDSマスターパスワードをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/db/password`
-    - [ ] ランダムパスワード生成 (32文字、特殊文字含む)
-  - [ ] Gemini APIキーをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/api/gemini-api-key`
-  - [ ] Google Books APIキーをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/api/google-books-api-key`
-  - [ ] Systems Manager Parameter Storeに非機密情報を保存
-    - [ ] `/article-manager/db/name` = "article_manager"
-    - [ ] `/article-manager/db/user` = "admin"
+- [x] AWS Management ConsoleまたはAWS CLIでParameter Storeにアクセス
+- [x] 機密情報（SecureString型）を作成
+  - [x] `/article-manager/db/admin-password` - `.env`の`MYSQL_ROOT_PASSWORD`
+  - [x] `/article-manager/db/app-password` - `.env`の`MYSQL_PASSWORD`
+  - [x] `/article-manager/api/gemini-api-key` - `.env`の`GEMINI_API_KEY`
+  - [x] `/article-manager/api/google-books-api-key` - `.env`の`GOOGLE_BOOKS_API_KEY`
 
-### 3.2 RDS for MySQL構築（Single-AZ、最小構成）
+### 3.1 Terraform - Parameter Store参照設定
 
-- [ ] `terraform/rds.tf` を作成
-  - [ ] DBサブネットグループを定義 (プライベートサブネット)
-  - [ ] RDSインスタンスを定義
-    - [ ] インスタンスクラス: `db.t4g.micro`
-    - [ ] エンジン: `mysql` バージョン `8.0`
-    - [ ] ストレージ: `gp3`, 20 GB
-    - [ ] **Multi-AZ: `false`**（Single-AZ、コスト削減）
-    - [ ] 自動バックアップ: `true` (保持期間**1日**)
-    - [ ] データベース名: `article_manager`
-    - [ ] マスターユーザー名: `admin`
-    - [ ] パスワード: Secrets Managerから取得
-    - [ ] セキュリティグループ: RDS用SG
-    - [ ] パブリックアクセス: `false`
-    - [ ] 暗号化: `true` (KMSデフォルトキー)
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] ワークフローログで RDS作成を確認
-- [ ] AWS Management ConsoleでRDSエンドポイントを確認
+- [x] `terraform/parameters.tf` を作成
+  - [x] 機密情報（SecureString）をdata sourceで参照
+    - [x] `/article-manager/db/admin-password`
+    - [x] `/article-manager/db/app-password`
+    - [x] `/article-manager/api/gemini-api-key`
+    - [x] `/article-manager/api/google-books-api-key`
+  - [x] 非機密情報をTerraformで作成
+    - [x] `/article-manager/db/name` = "article_manager"
+    - [x] `/article-manager/db/admin-user` = "admin"
+    - [x] `/article-manager/db/app-user` = "article_user"
 
-### 3.3 ECR (Elastic Container Registry) 構築
+### 3.2 RDS Parameter Group作成
 
-- [ ] `terraform/ecr.tf` を作成
-  - [ ] フロントエンド用ECRリポジトリを定義
-    - [ ] リポジトリ名: `article-manager-frontend`
-    - [ ] イメージタグの可変性: `MUTABLE`
-    - [ ] スキャン設定: オンプッシュスキャン有効化
-  - [ ] バックエンド用ECRリポジトリを定義
-    - [ ] リポジトリ名: `article-manager-api`
-    - [ ] イメージタグの可変性: `MUTABLE`
-    - [ ] スキャン設定: オンプッシュスキャン有効化
-  - [ ] ライフサイクルポリシーを定義
-    - [ ] 未使用イメージを30日後に削除
-    - [ ] `latest` タグは削除しない
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] AWS Management ConsoleでECRリポジトリURLを確認
+- [x] `terraform/rds.tf` にパラメータグループを追加
+  - [x] `character_set_server` = `utf8mb4`
+  - [x] `collation_server` = `utf8mb4_unicode_ci`
+  - [x] `innodb_ft_min_token_size` = `2`
+  - [x] `ft_min_word_len` = `2`
+  - [x] 注: `[client]`と`[mysql]`セクションの文字セット設定はRDSパラメータグループでは不可。アプリケーション接続文字列で`charset=utf8mb4`を指定する
+
+### 3.3 RDS for MySQL構築
+
+- [x] `terraform/rds.tf` を作成（または既存ファイルに追加）
+  - [x] DBサブネットグループを定義 (プライベートサブネット)
+  - [x] RDSインスタンスを定義
+    - [x] インスタンスクラス: `db.t4g.micro`
+    - [x] エンジン: `mysql` バージョン `8.0`
+    - [x] ストレージ: `gp3`, 20 GB
+    - [x] Multi-AZ: `false`
+    - [x] 自動バックアップ: `false` (保持期間0日)
+    - [x] データベース名: `article_manager`
+    - [x] マスターユーザー名: `admin`
+    - [x] パスワード: Parameter Storeから取得 (`aws_ssm_parameter.db_admin_password.value`)
+    - [x] セキュリティグループ: RDS用SG
+    - [x] パブリックアクセス: `false`
+    - [x] 暗号化: `true` (KMSデフォルトキー)
+    - [x] パラメータグループ: カスタムパラメータグループを使用
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] ワークフローログで RDS作成を確認
+- [x] AWS Management ConsoleでRDSエンドポイントを確認
+
+### 3.4 ECR (Elastic Container Registry) 構築
+
+- [x] `terraform/ecr.tf` を作成
+  - [x] フロントエンド用ECRリポジトリを定義
+    - [x] リポジトリ名: `article-manager-frontend`
+    - [x] イメージタグの可変性: `MUTABLE`
+    - [x] スキャン設定: オンプッシュスキャン有効化
+  - [x] バックエンド用ECRリポジトリを定義
+    - [x] リポジトリ名: `article-manager-api`
+    - [x] イメージタグの可変性: `MUTABLE`
+    - [x] スキャン設定: オンプッシュスキャン有効化
+  - [x] ライフサイクルポリシーを定義
+    - [x] 未使用イメージを30日後に削除
+    - [x] `latest` タグは削除しない
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] AWS Management ConsoleでECRリポジトリURLを確認
 
 ---
 
@@ -256,16 +288,16 @@
   - [ ] ECSタスク実行ロール (Task Execution Role) を定義
     - [ ] `ecs-tasks.amazonaws.com` を信頼エンティティに設定
     - [ ] ポリシー: `AmazonECSTaskExecutionRolePolicy` をアタッチ
-    - [ ] ポリシー: Secrets Manager読み取り権限を追加
-    - [ ] ポリシー: Parameter Store読み取り権限を追加
+    - [ ] ポリシー: Parameter Store読み取り権限を追加（`ssm:GetParameters`, `ssm:GetParameter`）
+    - [ ] ポリシー: KMS復号権限を追加（SecureString復号用、`kms:Decrypt`）
   - [ ] ECSタスクロール (Task Role) を定義
     - [ ] CloudWatch Logs書き込み権限
 
-### 5.2 CloudWatch Logsグループ作成（最小構成）
+### 5.2 CloudWatch Logsグループ作成
 
 - [ ] `terraform/cloudwatch.tf` を作成
   - [ ] アプリケーション用ロググループ `/ecs/article-manager-app`
-    - [ ] 保持期間: **1日**（コスト最小化）
+    - [ ] 保持期間: 1日
   - [ ] ~~CloudWatch Metrics~~（不要: コスト削減）
   - [ ] ~~CloudWatch Alarms~~（不要: コスト削減）
 
@@ -283,14 +315,15 @@
       - [ ] イメージ: ECR API URL
       - [ ] ポートマッピング: `8080`
       - [ ] ログ設定: CloudWatch Logs (`/ecs/article-manager-app`)
-      - [ ] 環境変数 (Secrets Manager / Parameter Storeから取得):
-        - [ ] `DB_HOST`
-        - [ ] `DB_NAME`
-        - [ ] `DB_USER`
-        - [ ] `DB_PASSWORD`
-        - [ ] `GEMINI_API_KEY`
-        - [ ] `GOOGLE_BOOKS_API_KEY`
-        - [ ] `PORT=8080`
+      - [ ] 環境変数（非機密情報）:
+        - [ ] `DB_HOST` - RDSエンドポイントを直接指定
+        - [ ] `PORT=8080` - 環境変数として直接指定
+      - [ ] シークレット (Parameter Storeから取得、`secrets`フィールド使用):
+        - [ ] `DB_NAME` - `arn:aws:ssm:region:account:parameter/article-manager/db/name`
+        - [ ] `DB_USER` - `arn:aws:ssm:region:account:parameter/article-manager/db/app-user` ← **article_user**
+        - [ ] `DB_PASSWORD` - `arn:aws:ssm:region:account:parameter/article-manager/db/app-password` ← **SecureString**
+        - [ ] `GEMINI_API_KEY` - `arn:aws:ssm:region:account:parameter/article-manager/api/gemini-api-key` ← **SecureString**
+        - [ ] `GOOGLE_BOOKS_API_KEY` - `arn:aws:ssm:region:account:parameter/article-manager/api/google-books-api-key` ← **SecureString**
     - [ ] タスク実行ロール: 上記で作成したIAMロール
   - [ ] フロントエンドタスク定義を作成
     - [ ] ファミリー名: `article-manager-frontend`
@@ -306,7 +339,7 @@
         - [ ] `NEXT_PUBLIC_API_URL` = `http://localhost:8080`（同一タスク内通信）
     - [ ] タスク実行ロール: 上記で作成したIAMロール
 
-### 5.4 ECSサービス作成（パブリックIP割り当て）
+### 5.4 ECSサービス作成
 
 - [ ] `terraform/ecs.tf` に ECSサービスを追加
   - [ ] バックエンドECSサービスを定義
@@ -316,9 +349,9 @@
     - [ ] 起動タイプ: `FARGATE`
     - [ ] Desired Count: 1（固定、Auto Scaling なし）
     - [ ] ネットワーク設定:
-      - [ ] サブネット: **パブリックサブネット**
+      - [ ] サブネット: パブリックサブネット
       - [ ] セキュリティグループ: ECS SG
-      - [ ] **パブリックIPの割り当て: `true`**（重要）
+      - [ ] パブリックIPの割り当て: `true`
   - [ ] フロントエンドECSサービスを定義
     - [ ] サービス名: `article-manager-frontend-service`
     - [ ] クラスター: `article-manager-cluster`
@@ -326,9 +359,9 @@
     - [ ] 起動タイプ: `FARGATE`
     - [ ] Desired Count: 1（固定）
     - [ ] ネットワーク設定:
-      - [ ] サブネット: **パブリックサブネット**
+      - [ ] サブネット: パブリックサブネット
       - [ ] セキュリティグループ: ECS SG
-      - [ ] **パブリックIPの割り当て: `true`**（重要）
+      - [ ] パブリックIPの割り当て: `true`
 
 ### 5.5 Terraform Apply - ECS構築（GitHub Actions経由）
 
@@ -351,6 +384,12 @@
 ---
 
 ## Phase 6: Route 53設定 (Week 2, Day 5)
+
+### 6.0 GitHub Secrets設定（Phase 6: ドメイン関連）
+
+- [ ] GitHubリポジトリのSettings → Secrets and variables → Actionsにアクセス
+- [ ] 以下のSecretsを追加登録:
+  - [ ] `TF_VAR_domain_name` - 使用するドメイン名（例: `app.example.com`）
 
 ### 6.1 ドメイン取得とRoute 53ホストゾーン作成
 
@@ -423,11 +462,42 @@
 - [ ] S3バケットを削除
 - [ ] ローカルのdumpファイルを削除
 
-### 7.6 ECSタスクからRDS接続テスト
+### 7.6 アプリケーション用ユーザー（article_user）作成
+
+- [ ] EC2インスタンスからRDSにadminユーザーで接続
+  - [ ] `mysql -h <rds-endpoint> -u admin -p article_manager`
+- [ ] アプリケーション用ユーザーを作成
+  - [ ] `CREATE USER 'article_user'@'%' IDENTIFIED BY '<app-password>';`
+  - [ ] パスワードは`.env`の`MYSQL_PASSWORD`（`hEKLvsNNXTmGGEq1`）を使用
+- [ ] 必要最小限の権限を付与
+  - [ ] `GRANT SELECT, INSERT, UPDATE, DELETE ON article_manager.* TO 'article_user'@'%';`
+  - [ ] `GRANT CREATE, ALTER, DROP, INDEX ON article_manager.* TO 'article_user'@'%';`
+  - [ ] `FLUSH PRIVILEGES;`
+- [ ] article_userで接続テスト
+  - [ ] `mysql -h <rds-endpoint> -u article_user -p article_manager`
+  - [ ] `SELECT * FROM articles LIMIT 1;` でデータ取得確認
+
+**SQL実行例**:
+```sql
+-- article_user作成
+CREATE USER 'article_user'@'%' IDENTIFIED BY 'hEKLvsNNXTmGGEq1';
+
+-- 権限付与
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX
+  ON article_manager.* TO 'article_user'@'%';
+
+FLUSH PRIVILEGES;
+
+-- 確認
+SHOW GRANTS FOR 'article_user'@'%';
+```
+
+### 7.7 ECSタスクからRDS接続テスト（article_user使用）
 
 - [ ] CloudWatch Logsでバックエンドログを確認
 - [ ] ブラウザで記事一覧ページにアクセス
   - [ ] RDSから正しくデータが取得されることを確認
+  - [ ] article_userでの接続が成功していることを確認
 
 ---
 
@@ -455,12 +525,8 @@
   - [ ] ステップ5: ECSタスクのパブリックIPを取得
   - [ ] ステップ6: Route 53のAレコードを更新（`scripts/update-route53.sh` 実行）
   - [ ] ステップ7: 完了通知（ドメインURLを表示）
-- [ ] GitHub Secretsに以下を設定
-  - [ ] `AWS_ACCESS_KEY_ID`
-  - [ ] `AWS_SECRET_ACCESS_KEY`
-  - [ ] `AWS_REGION` (ap-northeast-1)
-  - [ ] `ROUTE53_HOSTED_ZONE_ID`
-  - [ ] `DOMAIN_NAME` (app.example.com)
+- [ ] GitHub Secretsに以下を追加設定（AWS認証情報は設定済み）
+  - [ ] `ROUTE53_HOSTED_ZONE_ID` - Route 53ホストゾーンID（Terraform outputまたはAWSコンソールから取得）
 
 ### 8.3 GitHub Actions - 停止ワークフロー
 
@@ -511,12 +577,12 @@
     - [ ] 新しいタスク定義を登録（フロントエンド）
     - [ ] ECSサービスを更新
     - [ ] デプロイ完了を待機
-- [ ] GitHub Secretsに追加
-  - [ ] `ECR_FRONTEND_REPOSITORY`
-  - [ ] `ECR_BACKEND_REPOSITORY`
-  - [ ] `ECS_CLUSTER`
-  - [ ] `ECS_SERVICE_FRONTEND`
-  - [ ] `ECS_SERVICE_BACKEND`
+- [ ] GitHub Secretsに以下を追加設定（Terraform outputまたはAWSコンソールから取得）
+  - [ ] `ECR_FRONTEND_REPOSITORY` - フロントエンドECRリポジトリURL
+  - [ ] `ECR_BACKEND_REPOSITORY` - バックエンドECRリポジトリURL
+  - [ ] `ECS_CLUSTER` - ECSクラスター名（`article-manager-cluster`）
+  - [ ] `ECS_SERVICE_FRONTEND` - フロントエンドECSサービス名
+  - [ ] `ECS_SERVICE_BACKEND` - バックエンドECSサービス名
 
 ### 9.2 CI/CD動作確認
 
