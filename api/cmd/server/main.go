@@ -89,6 +89,9 @@ func main() {
 		fmt.Fprintf(w, `{"message":"Article Manager API","version":"1.0.0"}`)
 	})
 
+	// ヘルスチェックエンドポイント
+	mux.HandleFunc("GET /api/health", handler.HealthCheckHandler)
+
 	// 記事一覧取得
 	mux.HandleFunc("GET /api/articles", articleHandler.GetAllArticles)
 
