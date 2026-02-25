@@ -48,64 +48,64 @@
 
 ### 1.2 GitHub Secrets設定
 
-- [ ] GitHubリポジトリのSettings → Secrets and variables → Actionsにアクセス
-- [ ] 以下のSecretsを登録:
-  - [ ] `AWS_ACCESS_KEY_ID` - AWSアクセスキーID
-  - [ ] `AWS_SECRET_ACCESS_KEY` - AWSシークレットアクセスキー
-  - [ ] `AWS_REGION` - `ap-northeast-1`
-  - [ ] `TF_VAR_db_master_password` - RDSマスターパスワード（32文字、ランダム生成推奨）
-  - [ ] `TF_VAR_domain_name` - 使用するドメイン名（例: `app.example.com`）
+- [x] GitHubリポジトリのSettings → Secrets and variables → Actionsにアクセス
+- [x] 以下のSecretsを登録:
+  - [x] `AWS_ACCESS_KEY_ID` - AWSアクセスキーID
+  - [x] `AWS_SECRET_ACCESS_KEY` - AWSシークレットアクセスキー
+  - [x] `AWS_REGION` - `ap-northeast-1`
+  - [x] `TF_VAR_db_master_password` - RDSマスターパスワード（32文字、ランダム生成推奨）
+  - [x] `TF_VAR_domain_name` - 使用するドメイン名（例: `app.example.com`）
 
 ### 1.3 Terraformバックエンド設定（AWS CLIで実行）
 
-- [ ] S3バケットを作成 (terraform.tfstate保存用)
-  - [ ] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
-  - [ ] バケット名: `article-manager-terraform-state`
-  - [ ] リージョン: `ap-northeast-1`
-  - [ ] バージョニングを有効化
-  - [ ] 暗号化を有効化
-- [ ] DynamoDBテーブルを作成 (ステートロック用)
-  - [ ] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
-  - [ ] テーブル名: `article-manager-terraform-lock`
-  - [ ] プライマリキー: `LockID` (String)
-- [ ] `terraform/backend.tf` を作成
-  - [ ] S3バケット名とDynamoDBテーブル名を定義
+- [x] S3バケットを作成 (terraform.tfstate保存用)
+  - [x] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
+  - [x] バケット名: `article-manager-terraform-state`
+  - [x] リージョン: `ap-northeast-1`
+  - [x] バージョニングを有効化
+  - [x] 暗号化を有効化
+- [x] DynamoDBテーブルを作成 (ステートロック用)
+  - [x] AWS Management Consoleまたは一時的にローカルでAWS CLIを使用
+  - [x] テーブル名: `article-manager-terraform-lock`
+  - [x] プライマリキー: `LockID` (String)
+- [x] `terraform/backend.tf` を作成
+  - [x] S3バケット名とDynamoDBテーブル名を定義
 
 ### 1.4 Terraform基本設定ファイル
 
-- [ ] `terraform/provider.tf` を作成
-  - [ ] AWS Providerバージョンを `~> 5.0` に設定
-  - [ ] リージョンを `ap-northeast-1` に設定
-- [ ] `terraform/variables.tf` を作成
-  - [ ] プロジェクト名 (`project_name` = "article-manager")
-  - [ ] 環境名 (`environment` = "production")
-  - [ ] AWS リージョン (`aws_region`)
-  - [ ] VPC CIDR (`vpc_cidr` = "10.0.0.0/16")
-  - [ ] RDSマスターパスワード (`db_master_password` - sensitive)
-  - [ ] ドメイン名 (`domain_name`)
-- [ ] `terraform/terraform.tfvars.example` を作成
-- [ ] `terraform/outputs.tf` を作成
-  - [ ] RDSエンドポイント
-  - [ ] ECRリポジトリURL
-  - [ ] ECSクラスター名
-  - [ ] Route 53ホストゾーンID
+- [x] `terraform/provider.tf` を作成
+  - [x] AWS Providerバージョンを `~> 5.0` に設定
+  - [x] リージョンを `ap-northeast-1` に設定
+- [x] `terraform/variables.tf` を作成
+  - [x] プロジェクト名 (`project_name` = "article-manager")
+  - [x] 環境名 (`environment` = "production")
+  - [x] AWS リージョン (`aws_region`)
+  - [x] VPC CIDR (`vpc_cidr` = "10.0.0.0/16")
+  - [x] RDSマスターパスワード (`db_master_password` - sensitive)
+  - [x] ドメイン名 (`domain_name`)
+- [x] `terraform/terraform.tfvars.example` を作成
+- [x] `terraform/outputs.tf` を作成
+  - [x] RDSエンドポイント
+  - [x] ECRリポジトリURL
+  - [x] ECSクラスター名
+  - [x] Route 53ホストゾーンID
 
 ### 1.5 Terraform実行用GitHub Actionsワークフロー作成
 
-- [ ] `.github/workflows/terraform-apply.yml` を作成
-  - [ ] トリガー: `workflow_dispatch`（手動実行）
-  - [ ] ジョブ: Terraform実行
-    - [ ] チェックアウト
-    - [ ] AWS認証情報を設定（GitHub Secrets使用）
-    - [ ] Terraformをセットアップ（hashicorp/setup-terraform@v3）
-    - [ ] `terraform init`
-    - [ ] `terraform validate`
-    - [ ] `terraform plan`
-    - [ ] `terraform apply -auto-approve`（planが成功した場合）
-  - [ ] 環境変数でTerraform変数を設定
-    - [ ] `TF_VAR_db_master_password`
-    - [ ] `TF_VAR_domain_name`
-- [ ] ワークフローファイルをコミット・プッシュ
+- [x] `.github/workflows/terraform-apply.yml` を作成
+  - [x] トリガー: `workflow_dispatch`（手動実行）
+  - [x] ジョブ: Terraform実行
+    - [x] チェックアウト
+    - [x] AWS認証情報を設定（GitHub Secrets使用）
+    - [x] Terraformをセットアップ（hashicorp/setup-terraform@v3）
+    - [x] `terraform init`
+    - [x] `terraform validate`
+    - [x] `terraform plan`
+    - [x] `terraform apply -auto-approve`（planが成功した場合）
+  - [x] 環境変数でTerraform変数を設定
+    - [x] `TF_VAR_db_master_password`
+    - [x] `TF_VAR_domain_name`
+- [x] ワークフローファイルをコミット・プッシュ
 
 ---
 
@@ -113,39 +113,39 @@
 
 ### 2.1 VPCネットワーク構築（Single-AZ、シンプル構成）
 
-- [ ] `terraform/vpc.tf` を作成
-  - [ ] VPCリソースを定義 (CIDR: `10.0.0.0/16`)
-  - [ ] パブリックサブネット (ap-northeast-1a)
-    - [ ] `10.0.1.0/24`
-  - [ ] プライベートサブネット (ap-northeast-1a)
-    - [ ] `10.0.11.0/24`
-  - [ ] インターネットゲートウェイを定義
-  - [ ] ルートテーブルを定義
-    - [ ] パブリックサブネット用 (0.0.0.0/0 → Internet Gateway)
-    - [ ] プライベートサブネット用 (デフォルトのローカルルートのみ)
-  - [ ] ~~NAT Gateway~~（不要: ECSをパブリックサブネットに配置するため）
+- [x] `terraform/vpc.tf` を作成
+  - [x] VPCリソースを定義 (CIDR: `10.0.0.0/16`)
+  - [x] パブリックサブネット (ap-northeast-1a)
+    - [x] `10.0.1.0/24`
+  - [x] プライベートサブネット (ap-northeast-1a)
+    - [x] `10.0.11.0/24`
+  - [x] インターネットゲートウェイを定義
+  - [x] ルートテーブルを定義
+    - [x] パブリックサブネット用 (0.0.0.0/0 → Internet Gateway)
+    - [x] プライベートサブネット用 (デフォルトのローカルルートのみ)
+  - [x] ~~NAT Gateway~~（不要: ECSをパブリックサブネットに配置するため）
 
 ### 2.2 セキュリティグループ定義
 
-- [ ] `terraform/security-groups.tf` を作成
-  - [ ] ECSタスク用セキュリティグループ
-    - [ ] インバウンド: HTTP (80) from 0.0.0.0/0
-    - [ ] インバウンド: ポート3000 from 0.0.0.0/0 (Frontend直接アクセス用、オプション)
-    - [ ] インバウンド: ポート8080 from 0.0.0.0/0 (Backend直接アクセス用、オプション)
-    - [ ] アウトバウンド: All traffic
-  - [ ] RDS用セキュリティグループ
-    - [ ] インバウンド: MySQL (3306) from ECS SG
-    - [ ] アウトバウンド: なし
+- [x] `terraform/security_groups.tf` を作成
+  - [x] ECSタスク用セキュリティグループ
+    - [x] インバウンド: HTTP (80) from 0.0.0.0/0
+    - [x] インバウンド: ポート3000 from 0.0.0.0/0 (Frontend直接アクセス用、オプション)
+    - [x] インバウンド: ポート8080 from 0.0.0.0/0 (Backend直接アクセス用、オプション)
+    - [x] アウトバウンド: All traffic
+  - [x] RDS用セキュリティグループ
+    - [x] インバウンド: MySQL (3306) from ECS SG
+    - [x] アウトバウンド: なし
 
 ### 2.3 Terraform初期化・検証（GitHub Actions経由）
 
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] ワークフローログで以下を確認:
-  - [ ] `terraform init` が成功
-  - [ ] `terraform validate` が成功
-  - [ ] `terraform plan` で実行計画を確認
-- [ ] VPC、サブネット、セキュリティグループが作成されることを確認
-  - [ ] 必要に応じて段階的に適用（terraform targetを使用）
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] ワークフローログで以下を確認:
+  - [x] `terraform init` が成功
+  - [x] `terraform validate` が成功
+  - [x] `terraform plan` で実行計画を確認
+- [x] VPC、サブネット、セキュリティグループが作成されることを確認
+  - [x] 必要に応じて段階的に適用（terraform targetを使用）
 
 ---
 
@@ -153,54 +153,54 @@
 
 ### 3.1 Secrets Manager設定
 
-- [ ] `terraform/secrets.tf` を作成
-  - [ ] RDSマスターパスワードをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/db/password`
-    - [ ] ランダムパスワード生成 (32文字、特殊文字含む)
-  - [ ] Gemini APIキーをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/api/gemini-api-key`
-  - [ ] Google Books APIキーをSecrets Managerに保存
-    - [ ] シークレット名: `/article-manager/api/google-books-api-key`
-  - [ ] Systems Manager Parameter Storeに非機密情報を保存
-    - [ ] `/article-manager/db/name` = "article_manager"
-    - [ ] `/article-manager/db/user` = "admin"
+- [x] `terraform/secrets.tf` を作成
+  - [x] RDSマスターパスワードをSecrets Managerに保存
+    - [x] シークレット名: `/article-manager/db/password`
+    - [x] ランダムパスワード生成 (32文字、特殊文字含む)
+  - [x] Gemini APIキーをSecrets Managerに保存
+    - [x] シークレット名: `/article-manager/api/gemini-api-key`
+  - [x] Google Books APIキーをSecrets Managerに保存
+    - [x] シークレット名: `/article-manager/api/google-books-api-key`
+  - [x] Systems Manager Parameter Storeに非機密情報を保存
+    - [x] `/article-manager/db/name` = "article_manager"
+    - [x] `/article-manager/db/user` = "admin"
 
 ### 3.2 RDS for MySQL構築（Single-AZ、最小構成）
 
-- [ ] `terraform/rds.tf` を作成
-  - [ ] DBサブネットグループを定義 (プライベートサブネット)
-  - [ ] RDSインスタンスを定義
-    - [ ] インスタンスクラス: `db.t4g.micro`
-    - [ ] エンジン: `mysql` バージョン `8.0`
-    - [ ] ストレージ: `gp3`, 20 GB
-    - [ ] **Multi-AZ: `false`**（Single-AZ、コスト削減）
-    - [ ] 自動バックアップ: `true` (保持期間**1日**)
-    - [ ] データベース名: `article_manager`
-    - [ ] マスターユーザー名: `admin`
-    - [ ] パスワード: Secrets Managerから取得
-    - [ ] セキュリティグループ: RDS用SG
-    - [ ] パブリックアクセス: `false`
-    - [ ] 暗号化: `true` (KMSデフォルトキー)
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] ワークフローログで RDS作成を確認
-- [ ] AWS Management ConsoleでRDSエンドポイントを確認
+- [x] `terraform/rds.tf` を作成
+  - [x] DBサブネットグループを定義 (プライベートサブネット)
+  - [x] RDSインスタンスを定義
+    - [x] インスタンスクラス: `db.t4g.micro`
+    - [x] エンジン: `mysql` バージョン `8.0`
+    - [x] ストレージ: `gp3`, 20 GB
+    - [x] **Multi-AZ: `false`**（Single-AZ、コスト削減）
+    - [x] 自動バックアップ: `true` (保持期間**1日**)
+    - [x] データベース名: `article_manager`
+    - [x] マスターユーザー名: `admin`
+    - [x] パスワード: Secrets Managerから取得
+    - [x] セキュリティグループ: RDS用SG
+    - [x] パブリックアクセス: `false`
+    - [x] 暗号化: `true` (KMSデフォルトキー)
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] ワークフローログで RDS作成を確認
+- [x] AWS Management ConsoleでRDSエンドポイントを確認
 
 ### 3.3 ECR (Elastic Container Registry) 構築
 
-- [ ] `terraform/ecr.tf` を作成
-  - [ ] フロントエンド用ECRリポジトリを定義
-    - [ ] リポジトリ名: `article-manager-frontend`
-    - [ ] イメージタグの可変性: `MUTABLE`
-    - [ ] スキャン設定: オンプッシュスキャン有効化
-  - [ ] バックエンド用ECRリポジトリを定義
-    - [ ] リポジトリ名: `article-manager-api`
-    - [ ] イメージタグの可変性: `MUTABLE`
-    - [ ] スキャン設定: オンプッシュスキャン有効化
-  - [ ] ライフサイクルポリシーを定義
-    - [ ] 未使用イメージを30日後に削除
-    - [ ] `latest` タグは削除しない
-- [ ] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
-- [ ] AWS Management ConsoleでECRリポジトリURLを確認
+- [x] `terraform/ecr.tf` を作成
+  - [x] フロントエンド用ECRリポジトリを定義
+    - [x] リポジトリ名: `article-manager-frontend`
+    - [x] イメージタグの可変性: `MUTABLE`
+    - [x] スキャン設定: オンプッシュスキャン有効化
+  - [x] バックエンド用ECRリポジトリを定義
+    - [x] リポジトリ名: `article-manager-api`
+    - [x] イメージタグの可変性: `MUTABLE`
+    - [x] スキャン設定: オンプッシュスキャン有効化
+  - [x] ライフサイクルポリシーを定義
+    - [x] 未使用イメージを30日後に削除
+    - [x] `latest` タグは削除しない
+- [x] GitHub Actionsで `terraform-apply.yml` ワークフローを実行
+- [x] AWS Management ConsoleでECRリポジトリURLを確認
 
 ---
 
@@ -208,43 +208,43 @@
 
 ### 4.1 バックエンド (Go API) Dockerfile最適化
 
-- [ ] `api/Dockerfile` をマルチステージビルドに変更
-  - [ ] ビルドステージ: `golang:1.25-alpine`
-  - [ ] 実行ステージ: `alpine:latest`
-  - [ ] ポート8080を公開
-- [ ] ヘルスチェックエンドポイント `/api/health` を実装
-  - [ ] `api/internal/interface/handler/health_handler.go` を作成
-  - [ ] HTTPステータス200を返すシンプルなハンドラー
-  - [ ] `main.go` でルートを登録
-- [ ] ローカルでビルドテスト
-  - [ ] `cd api && docker build -t article-manager-api:local .`
-  - [ ] `docker run -p 8080:8080 article-manager-api:local`
-  - [ ] `curl http://localhost:8080/api/health` で動作確認
+- [x] `api/Dockerfile` をマルチステージビルドに変更
+  - [x] ビルドステージ: `golang:1.25-alpine`
+  - [x] 実行ステージ: `alpine:latest`
+  - [x] ポート8080を公開
+- [x] ヘルスチェックエンドポイント `/api/health` を実装
+  - [x] `api/internal/interface/handler/health_handler.go` を作成
+  - [x] HTTPステータス200を返すシンプルなハンドラー
+  - [x] `main.go` でルートを登録
+- [x] ローカルでビルドテスト
+  - [x] `cd api && docker build -t article-manager-api:local .`
+  - [x] `docker run -p 8080:8080 article-manager-api:local`
+  - [x] `curl http://localhost:8080/api/health` で動作確認
 
 ### 4.2 フロントエンド (Next.js) Dockerfile最適化
 
-- [ ] `frontend/Dockerfile` をマルチステージビルドに変更
-  - [ ] ビルドステージ: `node:20-alpine`
-  - [ ] 実行ステージ: `node:20-alpine`
-  - [ ] ポート3000を公開
-- [ ] ローカルでビルドテスト
-  - [ ] `cd frontend && docker build -t article-manager-frontend:local .`
-  - [ ] `docker run -p 3000:3000 article-manager-frontend:local`
-  - [ ] ブラウザで `http://localhost:3000` にアクセスして動作確認
+- [x] `frontend/Dockerfile` をマルチステージビルドに変更
+  - [x] ビルドステージ: `node:20-alpine`
+  - [x] 実行ステージ: `node:20-alpine`
+  - [x] ポート3000を公開
+- [x] ローカルでビルドテスト
+  - [x] `cd frontend && docker build -t article-manager-frontend:local .`
+  - [x] `docker run -p 3000:3000 article-manager-frontend:local`
+  - [x] ブラウザで `http://localhost:3000` にアクセスして動作確認
 
 ### 4.3 ECRへのイメージプッシュ
 
-- [ ] AWS ECRにログイン
-  - [ ] `aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com`
-- [ ] バックエンドイメージをビルド・タグ付け・プッシュ
-  - [ ] `cd api && docker build -t article-manager-api:latest .`
-  - [ ] `docker tag article-manager-api:latest <ecr-backend-url>:latest`
-  - [ ] `docker push <ecr-backend-url>:latest`
-- [ ] フロントエンドイメージをビルド・タグ付け・プッシュ
-  - [ ] `cd frontend && docker build -t article-manager-frontend:latest .`
-  - [ ] `docker tag article-manager-frontend:latest <ecr-frontend-url>:latest`
-  - [ ] `docker push <ecr-frontend-url>:latest`
-- [ ] ECRコンソールでイメージが正しくpushされたことを確認
+- [x] AWS ECRにログイン
+  - [x] `aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com`
+- [x] バックエンドイメージをビルド・タグ付け・プッシュ
+  - [x] `cd api && docker build -t article-manager-api:latest .`
+  - [x] `docker tag article-manager-api:latest <ecr-backend-url>:latest`
+  - [x] `docker push <ecr-backend-url>:latest`
+- [x] フロントエンドイメージをビルド・タグ付け・プッシュ
+  - [x] `cd frontend && docker build -t article-manager-frontend:latest .`
+  - [x] `docker tag article-manager-frontend:latest <ecr-frontend-url>:latest`
+  - [x] `docker push <ecr-frontend-url>:latest`
+- [x] ECRコンソールでイメージが正しくpushされたことを確認
 
 ---
 
